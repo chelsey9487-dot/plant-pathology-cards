@@ -1,0 +1,1357 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>植病病害卡</title>
+<meta name="description" content="植物病理病害資料庫與記憶小卡製作工具：建檔、分類瀏覽、測驗練習、匯出列印用 PDF 卡片。資料儲存在本機瀏覽器中。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* layout concept: herbarium specimen index — paper-card rows grouped under
+   taxonomic rail headings, like a field notebook's cross-reference drawer */
+:root{
+  --bg:#f6f1e4; --surface:#fffdf8; --surface-2:#eee7d4; --ink:#2b2a22;
+  --muted:#847c66; --line:#cfc5a8; --accent:#3f6b47; --accent-ink:#f6f1e4;
+  --accent-2:#a8512c; --bad:#a3312a; --good:#3f6b47; --warn:#9a6b1f;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1d16; --surface:#242620; --surface-2:#2d2f26; --ink:#eae5d6;
+    --muted:#a7a08c; --line:#45453a; --accent:#7fb285; --accent-ink:#17251a;
+    --accent-2:#e08a5e; --bad:#e2756b; --good:#7fb285; --warn:#e0b45a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1d16; --surface:#242620; --surface-2:#2d2f26; --ink:#eae5d6;
+  --muted:#a7a08c; --line:#45453a; --accent:#7fb285; --accent-ink:#17251a;
+  --accent-2:#e08a5e; --bad:#e2756b; --good:#7fb285; --warn:#e0b45a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;}
+html,body{margin:0; height:100%;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans TC","Noto Sans",system-ui,-apple-system,sans-serif;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+  font-size:14px; line-height:1.5;
+}
+h1,h2,h3,.disp{font-family:"Noto Serif TC","Noto Serif",serif;}
+.sci{font-family:"EB Garamond","Noto Serif TC",serif;}
+.sci i{font-style:italic;}
+.sci .roman{font-style:normal;}
+.sci-preview{font-size:14px; margin-top:4px; min-height:18px; color:var(--accent-2);}
+.hint code{background:var(--surface-2); padding:1px 4px; border-radius:4px; font-size:11px; font-family:monospace;}
+a{color:var(--accent-2);}
+img{max-width:100%;}
+[hidden]{display:none!important;}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:40;
+  background:var(--surface); border-bottom:2px solid var(--accent);
+  margin:0 -16px; padding:10px max(16px,env(safe-area-inset-left,0px)) 8px max(16px,env(safe-area-inset-right,0px));
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-right:auto;}
+.brand .mark{font-size:20px;}
+.brand h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.02em;}
+.brand .sub{font-size:11px; color:var(--muted);}
+nav.tabs{display:flex; gap:4px; flex-wrap:wrap;}
+nav.tabs button{
+  font:inherit; font-size:13px; border:1px solid var(--line); background:var(--surface-2);
+  color:var(--ink); padding:7px 12px; border-radius:7px; cursor:pointer;
+}
+nav.tabs button.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+.layout-toggle{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden;}
+.layout-toggle button{font:inherit; font-size:12px; border:none; background:var(--surface-2); color:var(--muted); padding:7px 9px; cursor:pointer;}
+.layout-toggle button.active{background:var(--accent-2); color:var(--accent-ink); font-weight:700;}
+.save-status{font-size:11px; color:var(--muted); white-space:nowrap;}
+
+/* forced layout overrides */
+body[data-forcelayout="desktop"] .app{max-width:none;}
+body[data-forcelayout="desktop"] .browse-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+body[data-forcelayout="desktop"] .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+body[data-forcelayout="mobile"] .browse-grid{grid-template-columns:1fr!important;}
+body[data-forcelayout="mobile"] .form-grid{grid-template-columns:1fr!important;}
+body[data-forcelayout="mobile"] .app{max-width:480px; margin:0 auto;}
+
+main.app{padding:14px 0 60px; max-width:1200px; margin:0 auto;}
+.panel{display:none;}
+.panel.active{display:block;}
+.banner{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:13px; color:var(--warn);}
+
+/* ---------- buttons / inputs ---------- */
+button{font:inherit;}
+.btn{border:1px solid var(--line); background:var(--surface-2); color:var(--ink); padding:8px 14px; border-radius:7px; cursor:pointer; font-size:13px;}
+.btn:hover{border-color:var(--accent);}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+.btn.danger{background:transparent; color:var(--bad); border-color:var(--bad);}
+.btn.small{padding:4px 9px; font-size:12px;}
+input[type=text],input[type=number],textarea,select{
+  width:100%; font:inherit; background:var(--surface); color:var(--ink);
+  border:1px solid var(--line); border-radius:6px; padding:8px 9px;
+}
+textarea{resize:vertical; min-height:56px;}
+label{display:block; font-size:12px; color:var(--muted); margin-bottom:3px; font-weight:600; letter-spacing:.02em;}
+fieldset{border:1px solid var(--line); border-radius:8px; margin:0 0 12px; padding:10px 12px;}
+legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
+.field{margin-bottom:10px;}
+.row-check{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink); font-weight:400;}
+.row-check input{width:auto;}
+.hint{font-size:11px; color:var(--muted); margin-top:3px;}
+
+/* ---------- browse ---------- */
+.search-row{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+.search-row input{flex:1; min-width:180px;}
+.chipbar{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;}
+.chip{border:1px solid var(--line); background:var(--surface-2); border-radius:999px; padding:5px 11px; font-size:12px; cursor:pointer; color:var(--muted);}
+.chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700;}
+.cat-block{margin-bottom:22px;}
+.cat-head{display:flex; align-items:baseline; gap:10px; border-bottom:2px solid var(--accent); padding-bottom:4px; margin-bottom:10px;}
+.cat-head h2{font-size:19px; margin:0;}
+.cat-head .count{font-size:12px; color:var(--muted);}
+.sub-head{font-size:13px; font-weight:700; color:var(--accent-2); margin:14px 0 6px; letter-spacing:.03em; text-transform:uppercase;}
+.genus-head{font-size:12px; color:var(--muted); margin:10px 0 4px; font-style:italic; border-top:1px dashed var(--line); padding-top:6px;}
+.browse-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px;}
+.dcard{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer;}
+.dcard:hover{border-color:var(--accent);}
+.dcard .thumb{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px;}
+.dcard .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.dcard .body{padding:8px 10px 10px;}
+.dcard .zh{font-weight:700; font-size:14px;}
+.dcard .en{font-size:11px; color:var(--muted);}
+.dcard .sci{font-size:12px; color:var(--accent-2); display:block; margin-top:2px;}
+.badges{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;}
+.badge{font-size:10px; padding:2px 6px; border-radius:5px; border:1px solid var(--line); color:var(--muted);}
+.badge.on-q{color:var(--bad); border-color:var(--bad);}
+.badge.on-tw{color:var(--good); border-color:var(--good);}
+.mastery-dot{width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:4px;}
+.m0{background:var(--muted);} .m1{background:var(--warn);} .m2{background:var(--good);}
+.empty-state{text-align:center; padding:50px 10px; color:var(--muted); border:1px dashed var(--line); border-radius:10px;}
+
+/* ---------- edit form ---------- */
+.form-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0 16px;}
+.photos-wrap{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
+.photo-tile{position:relative; width:96px; height:96px; border-radius:7px; overflow:hidden; border:2px solid var(--line);}
+.photo-tile.is-card{border-color:var(--accent-2);}
+.photo-tile img{width:100%; height:100%; object-fit:cover; display:block;}
+.photo-tile .x{position:absolute; top:2px; right:2px; background:rgba(0,0,0,.55); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; cursor:pointer; line-height:18px;}
+.photo-tile .star{position:absolute; bottom:2px; left:2px; background:rgba(0,0,0,.55); color:#fff; border:none; border-radius:4px; font-size:10px; padding:1px 4px; cursor:pointer;}
+.dropzone{border:2px dashed var(--line); border-radius:9px; padding:18px; text-align:center; color:var(--muted); font-size:12px; cursor:pointer;}
+.dropzone.drag{border-color:var(--accent); color:var(--accent);}
+.form-actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; align-items:center;}
+
+/* ---------- card maker ---------- */
+.maker-grid{display:grid; grid-template-columns:300px 1fr; gap:18px;}
+@media (max-width:760px){.maker-grid{grid-template-columns:1fr;}}
+.maker-opts fieldset{font-size:13px;}
+.sizepx{display:flex; gap:6px;}
+.pick-list{max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:8px;}
+.pick-row{display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:13px;}
+.pick-row .swatch{width:30px; height:30px; border-radius:5px; background:var(--surface-2); overflow:hidden; flex:none;}
+.pick-row .swatch img{width:100%; height:100%; object-fit:cover;}
+.pick-sub{font-size:11px; color:var(--muted); margin:8px 0 2px; text-transform:uppercase;}
+
+/* ---------- quiz ---------- */
+.quiz-wrap{max-width:460px; margin:0 auto; text-align:center;}
+.flip-card{position:relative; width:100%; aspect-ratio:3/4; border-radius:14px; cursor:pointer; perspective:1200px;}
+.flip-inner{position:relative; width:100%; height:100%; transition:transform .5s; transform-style:preserve-3d;}
+.flip-card.flipped .flip-inner{transform:rotateY(180deg);}
+.flip-face{position:absolute; inset:0; backface-visibility:hidden; border-radius:14px; border:1px solid var(--line); background:var(--surface); overflow:hidden; display:flex; flex-direction:column;}
+.flip-face.front img{width:100%; height:100%; object-fit:cover;}
+.flip-face.front{align-items:center; justify-content:center; color:var(--muted);}
+.flip-face.back{transform:rotateY(180deg); padding:18px; text-align:left; justify-content:center; gap:8px;}
+.flip-face.back .zh{font-size:20px; font-weight:700;}
+.flip-face.back .en{font-size:13px; color:var(--muted);}
+.flip-face.back .sci{font-size:15px; color:var(--accent-2);}
+.flip-face.back .pest{font-size:12px; white-space:pre-wrap; border-top:1px dashed var(--line); padding-top:8px; max-height:140px; overflow:auto;}
+.quiz-controls{display:flex; justify-content:center; gap:10px; margin-top:14px; flex-wrap:wrap;}
+.quiz-meta{font-size:12px; color:var(--muted); margin-bottom:10px;}
+
+/* ---------- backup ---------- */
+.usage-bar{height:8px; background:var(--surface-2); border-radius:5px; overflow:hidden; margin:6px 0;}
+.usage-bar > div{height:100%; background:var(--accent);}
+textarea.json-box{min-height:140px; font-family:monospace; font-size:11px;}
+footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 0 40px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark">🌿</span><div><h1>植病病害卡</h1><div class="sub">病害資料庫 · 快速記憶卡製作</div></div></div>
+  <nav class="tabs" id="navTabs">
+    <button data-tab="browse" class="active">瀏覽</button>
+    <button data-tab="edit">新增 / 編輯</button>
+    <button data-tab="cards">製作小卡</button>
+    <button data-tab="quiz">測驗</button>
+    <button data-tab="backup">備份</button>
+  </nav>
+  <div class="layout-toggle" id="layoutToggle">
+    <button data-mode="auto" class="active">自動</button>
+    <button data-mode="desktop">電腦板</button>
+    <button data-mode="mobile">手機板</button>
+  </div>
+  <div class="save-status" id="saveStatus"></div>
+</div>
+
+<main class="app">
+  <div id="globalBanner"></div>
+
+  <!-- ================= BROWSE ================= -->
+  <section class="panel active" id="panel-browse">
+    <div class="search-row">
+      <input type="text" id="searchBox" placeholder="搜尋中文名 / 英文名 / 學名 / 屬名…">
+      <button class="btn" id="btnNewFromBrowse">+ 新增病害</button>
+    </div>
+    <div class="chipbar" id="catChips"></div>
+    <div id="browseResults"></div>
+  </section>
+
+  <!-- ================= EDIT / ADD ================= -->
+  <section class="panel" id="panel-edit">
+    <div class="form-actions" style="margin-top:0;margin-bottom:10px;">
+      <strong id="editTitle">新增病害</strong>
+      <span class="save-status" id="formSaveStatus"></span>
+      <span style="flex:1"></span>
+      <button class="btn" id="btnNewEntry">清空 / 新增另一筆</button>
+      <button class="btn danger" id="btnDeleteEntry" hidden>刪除此病害</button>
+    </div>
+    <form id="diseaseForm" onsubmit="return false;">
+      <div class="form-grid">
+        <div>
+          <fieldset>
+            <legend>名稱與病原</legend>
+            <div class="field"><label>中文病名</label><input type="text" id="f_nameZh" placeholder="例：水稻稻熱病"></div>
+            <div class="field"><label>英文病名</label><input type="text" id="f_nameEn" placeholder="例：Rice blast"></div>
+            <div class="field"><label>病原菌學名</label><input type="text" id="f_pathogenSci" placeholder="例：Pyricularia oryzae">
+              <div class="sci-preview" id="sciPreview"></div>
+              <div class="hint">預設整串斜體；若有 <code>cf.</code>、<code>sp.</code>、<code>var.</code>、<code>pv.</code>、<code>f. sp.</code> 或命名人等不須斜體的部分，用中括號框起來即可，例如 <code>Fusarium [cf.] oxysporum</code> 或 <code>Pyricularia oryzae [Cavara]</code>。</div>
+            </div>
+            <div class="field"><label>病原類別</label>
+              <select id="f_pathogenType"></select>
+            </div>
+            <div class="field" id="f_subCategoryWrap"><label>次分類</label><select id="f_subCategory"></select></div>
+          </fieldset>
+          <fieldset>
+            <legend>病徵與發病</legend>
+            <div class="field"><label>病徵描述</label><textarea id="f_symptoms" placeholder="病斑型態、顏色、產孢構造等"></textarea></div>
+            <div class="field"><label>主要感染部位</label><input type="text" id="f_infectedPart" placeholder="例：葉片、葉鞘、穗頸"></div>
+            <div class="field"><label>好發環境</label><textarea id="f_environment" placeholder="溫度、濕度、季節、栽培管理因子"></textarea></div>
+            <div class="field"><label>病害環（Disease Cycle）</label><textarea id="f_diseaseCycle" placeholder="接種體來源、傳播方式、侵入途徑、潛伏期…"></textarea></div>
+          </fieldset>
+        </div>
+        <div>
+          <fieldset>
+            <legend>台灣現況與防治</legend>
+            <div class="field"><label>台灣發現紀錄</label>
+              <select id="f_taiwanRecorded">
+                <option value="unknown">不確定</option>
+                <option value="yes">已有紀錄</option>
+                <option value="no">尚未發現</option>
+              </select>
+            </div>
+            <div class="field"><label>台灣紀錄備註（選填）</label><input type="text" id="f_taiwanNote" placeholder="年代、地區、文獻等"></div>
+            <div class="field row-check"><input type="checkbox" id="f_quarantine"><label style="margin:0" for="f_quarantine">為植物檢疫重點對象</label></div>
+            <div class="field"><label>台灣現行登記農藥</label><textarea id="f_pesticides" placeholder="每行一項，例：75% 甲基托布津可濕性粉劑 1000倍"></textarea></div>
+            <div class="field"><label>防治方法（非農藥 / 綜合防治）</label><textarea id="f_controlMethods" placeholder="耕作防治、抗病品種、生物防治…"></textarea></div>
+          </fieldset>
+          <fieldset>
+            <legend>其他筆記</legend>
+            <div class="field"><textarea id="f_notes" placeholder="容易混淆的病害、口訣、補充…"></textarea></div>
+            <div class="field"><label>熟悉程度</label>
+              <select id="f_mastery">
+                <option value="0">尚未複習</option>
+                <option value="1">需加強</option>
+                <option value="2">已熟悉</option>
+              </select>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+      <fieldset>
+        <legend>照片（可貼上剪貼簿截圖，或拖曳 / 選擇檔案上傳）</legend>
+        <div class="dropzone" id="dropzone">拖放圖片到這裡、點擊選擇檔案，或直接 Ctrl/Cmd+V 貼上截圖</div>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+        <div class="photos-wrap" id="photosWrap"></div>
+        <div class="hint">點圖片上的 ★ 可設為小卡封面照（目前以外框標示）。照片會壓縮後存在這個瀏覽器裡（最長邊約 1600px）。</div>
+      </fieldset>
+    </form>
+  </section>
+
+  <!-- ================= CARD MAKER ================= -->
+  <section class="panel" id="panel-cards">
+    <div class="maker-grid">
+      <div class="maker-opts">
+        <fieldset>
+          <legend>小卡尺寸</legend>
+          <div class="field"><select id="cardPreset">
+            <option value="90x55">名片 9.0 × 5.5 cm</option>
+            <option value="80x120">卡片 8.0 × 12.0 cm</option>
+            <option value="70x100">7.0 × 10.0 cm</option>
+            <option value="74x105" selected>A7 7.4 × 10.5 cm</option>
+            <option value="custom">自訂…</option>
+          </select></div>
+          <div class="field sizepx" id="customSizeWrap" hidden>
+            <input type="number" id="cardW" value="74" min="20" max="200"><span style="align-self:center">×</span><input type="number" id="cardH" value="105" min="20" max="200"><span style="align-self:center">mm</span>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>版面</legend>
+          <div class="field"><label>輸出格式</label><select id="cardMode">
+            <option value="fold" selected>正反並排・單面列印・剪開對折</option>
+            <option value="duplex">正反分開兩頁・雙面列印</option>
+          </select></div>
+          <div class="field"><label>頁面大小</label><select id="pageSize"><option value="A4">A4</option><option value="Letter">Letter</option></select></div>
+          <div class="field sizepx"><label style="flex:none;align-self:center">邊界</label><input type="number" id="pageMargin" value="10" min="0" max="30"><span style="align-self:center">mm</span></div>
+          <div class="field sizepx"><label style="flex:none;align-self:center">間距</label><input type="number" id="cardGap" value="4" min="0" max="20"><span style="align-self:center">mm</span></div>
+          <div id="foldHintWrap" class="hint">每張小卡＝左邊正面＋右邊反面。剪下整張（含左右兩半）後，沿中間虛線對折，<b>有列印的一面朝外</b>對折、背對背黏起來，就是一張雙面小卡。只需單面列印，不用擔心雙面對不準。</div>
+          <div id="duplexOptionsWrap" hidden>
+            <div class="field row-check"><input type="checkbox" id="duplexMirror" checked><label style="margin:0" for="duplexMirror">雙面列印鏡像（適用長邊翻轉的自動雙面機）</label></div>
+            <div class="hint">建議先只選 1～2 張試印一次：用自動雙面機，就勾選此項；如果你是印完正面、手動把整疊紙翻面再放回印反面，請改成「不勾選」，兩種翻法鏡像方向相反。</div>
+          </div>
+          <div class="hint" id="gridInfo"></div>
+        </fieldset>
+        <fieldset>
+          <legend>選取病害</legend>
+          <div class="form-actions" style="margin:0 0 8px;">
+            <button class="btn small" id="btnSelAll">全選</button>
+            <button class="btn small" id="btnSelNone">清除</button>
+            <span class="hint" id="selCount" style="margin-left:auto;align-self:center"></span>
+          </div>
+          <div class="pick-list" id="pickList"></div>
+        </fieldset>
+        <button class="btn primary" id="btnGeneratePdf" style="width:100%">產生 PDF 小卡</button>
+        <div class="hint" id="pdfStatus"></div>
+      </div>
+      <div>
+        <div class="hint">預覽（示意比例，實際輸出依上方設定）</div>
+        <div id="cardPreview" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= QUIZ ================= -->
+  <section class="panel" id="panel-quiz">
+    <div class="quiz-wrap">
+      <div class="chipbar" id="quizFilterChips" style="justify-content:center"></div>
+      <div class="quiz-meta" id="quizMeta">尚無卡片</div>
+      <div class="flip-card" id="quizCard">
+        <div class="flip-inner">
+          <div class="flip-face front" id="quizFront">（請先新增病害並標記封面照片）</div>
+          <div class="flip-face back" id="quizBack"></div>
+        </div>
+      </div>
+      <div class="quiz-controls">
+        <button class="btn" id="btnQuizPrev">← 上一張</button>
+        <button class="btn" id="btnQuizMarkWeak">需加強</button>
+        <button class="btn" id="btnQuizMarkGood">已熟悉</button>
+        <button class="btn" id="btnQuizNext">下一張 →</button>
+        <button class="btn" id="btnQuizShuffle">🔀 重新洗牌</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BACKUP ================= -->
+  <section class="panel" id="panel-backup">
+    <fieldset>
+      <legend>儲存空間</legend>
+      <p class="hint">所有資料（含照片）都存在<b>這台裝置、這個瀏覽器</b>的本機資料庫（IndexedDB）裡，不會自動同步到別的裝置或瀏覽器。清除瀏覽器資料／清空快取會把它一起清掉，請養成定期匯出備份的習慣；換裝置或換瀏覽器時，用下面的匯出 JSON 搬過去即可（但目前 JSON 備份不含照片，照片仍只留在原本那台裝置，詳見下方說明）。</p>
+      <div id="usageInfo" class="hint">讀取中…</div>
+      <div class="usage-bar"><div id="usageBar" style="width:0%"></div></div>
+    </fieldset>
+    <fieldset>
+      <legend>匯出備份（JSON，含照片）</legend>
+      <p class="hint">會下載一份包含所有欄位與照片（照片以壓縮後的圖片資料內嵌在檔案裡）的 JSON 備份，檔案可能比純文字備份大上許多，視照片數量與張數而定。</p>
+      <button class="btn primary" id="btnExportJson">下載備份 JSON</button>
+    </fieldset>
+    <fieldset>
+      <legend>匯入備份</legend>
+      <p class="hint">貼上先前匯出的 JSON 內容，或選擇檔案，將會把其中的病害（含照片）加入資料庫（相同 ID 會被覆蓋）。</p>
+      <textarea class="json-box" id="importBox" placeholder="貼上 JSON…"></textarea>
+      <div class="form-actions">
+        <input type="file" id="importFile" accept=".json" hidden>
+        <button class="btn" id="btnImportFile">選擇檔案</button>
+        <button class="btn primary" id="btnImportJson">匯入</button>
+        <span class="hint" id="importStatus"></span>
+      </div>
+    </fieldset>
+  </section>
+</main>
+<footer class="site">植病病害卡 · 資料僅存於本機瀏覽器，請定期備份</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ---------------- config ---------------- */
+var PATHOGEN_TYPES = [
+  {key:'bacteria', zh:'細菌 Bacteria'},
+  {key:'fungus', zh:'真菌 Fungi'},
+  {key:'nematode', zh:'線蟲 Nematodes'},
+  {key:'virus', zh:'病毒 Viruses'},
+  {key:'other', zh:'其他 Other'}
+];
+var SUBCATS = {
+  bacteria:[
+    {key:'gram-negative', zh:'Gram-negative（革蘭氏陰性）'},
+    {key:'gram-positive', zh:'Gram-positive（革蘭氏陽性）'},
+    {key:'no-cell-wall', zh:'無細胞壁（植物菌質體 Phytoplasma）'}
+  ],
+  fungus:[
+    {key:'oomycetes', zh:'卵菌綱 Oomycetes'},
+    {key:'asco-imperfect', zh:'子囊菌綱與不完全菌綱'},
+    {key:'basidiomycetes', zh:'擔子菌綱 Basidiomycetes'},
+    {key:'botrytis-sclerotia', zh:'灰黴菌與產菌核類病原'}
+  ],
+  nematode:[], virus:[], other:[]
+};
+function typeZh(k){ var t=PATHOGEN_TYPES.find(function(x){return x.key===k;}); return t?t.zh:k; }
+function subZh(type,k){ var list=SUBCATS[type]||[]; var s=list.find(function(x){return x.key===k;}); return s?s.zh:k; }
+
+function esc(s){
+  s = (s===undefined||s===null) ? '' : String(s);
+  return s.replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function genusOf(sci){
+  var s=(sci||'').trim();
+  if(!s) return '';
+  var tokens=s.split(/\s+/);
+  var first=tokens[0].replace(/[.,]/g,'');
+  if(/^candidatus$/i.test(first) && tokens[1]) return tokens[1].replace(/[.,]/g,'');
+  return first;
+}
+function uid(){ return 'd_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+/* scientific-name markup: text in [brackets] is set roman (non-italic),
+   everything else defaults to italic — lets "cf.", "sp.", "pv.", author
+   citations etc. stay upright inside an otherwise italic name. */
+function parseSciSegments(str){
+  str = str || '';
+  var parts = [];
+  var re = /\[([^\]]*)\]/g;
+  var lastIndex = 0, m;
+  while((m = re.exec(str))){
+    if(m.index > lastIndex) parts.push({text: str.slice(lastIndex, m.index), italic:true});
+    if(m[1]) parts.push({text: m[1], italic:false});
+    lastIndex = re.lastIndex;
+  }
+  if(lastIndex < str.length) parts.push({text: str.slice(lastIndex), italic:true});
+  return parts.filter(function(p){ return p.text.length>0; });
+}
+function sciHtml(str){
+  var segs = parseSciSegments(str);
+  if(!segs.length) return '';
+  return segs.map(function(s){
+    return s.italic ? '<i>'+esc(s.text)+'</i>' : '<span class="roman">'+esc(s.text)+'</span>';
+  }).join('');
+}
+
+/* ---------------- state ---------------- */
+var diseases = {}; // id -> data
+var dbReady = false;
+var idb = null;
+var currentEditId = null;
+var workingPhotos = [];
+var saveTimer = null;
+var activeTab = 'browse';
+var selectedCardIds = {};
+var quizQueue = [];
+var quizIndex = 0;
+var quizFilterType = 'all';
+
+function byId(id){ return document.getElementById(id); }
+
+function banner(msg){
+  var el = byId('globalBanner');
+  if(!msg){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="banner">'+esc(msg)+'</div>';
+}
+
+/* ---------------- local database (IndexedDB) ---------------- */
+var DB_NAME = 'ppcards_db', DB_VERSION = 1;
+function openIDB(){
+  return new Promise(function(resolve,reject){
+    var req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(e){
+      var db = e.target.result;
+      if(!db.objectStoreNames.contains('diseases')) db.createObjectStore('diseases',{keyPath:'id'});
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function idbPut(doc){
+  return new Promise(function(resolve,reject){
+    var tx = idb.transaction('diseases','readwrite');
+    tx.objectStore('diseases').put(doc);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(){ reject(tx.error); };
+  });
+}
+function idbDelete(id){
+  return new Promise(function(resolve,reject){
+    var tx = idb.transaction('diseases','readwrite');
+    tx.objectStore('diseases').delete(id);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(){ reject(tx.error); };
+  });
+}
+function idbGetAll(){
+  return new Promise(function(resolve,reject){
+    var tx = idb.transaction('diseases','readonly');
+    var req = tx.objectStore('diseases').getAll();
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+
+async function initApp(){
+  try{
+    if(!window.indexedDB){
+      banner('這個瀏覽器不支援本機資料庫（IndexedDB），資料無法儲存。建議改用 Chrome、Safari 或 Edge 等現代瀏覽器開啟。');
+      renderAll();
+      return;
+    }
+    idb = await openIDB();
+    dbReady = true;
+    var rows = await idbGetAll();
+    diseases = {};
+    rows.forEach(function(r){
+      var id = r.id;
+      var copy = Object.assign({}, r);
+      delete copy.id;
+      diseases[id] = copy;
+    });
+    renderAll();
+  }catch(e){
+    banner('初始化本機資料庫失敗：'+(e&&e.message||e)+'（若在無痕視窗開啟，部分瀏覽器會限制本機資料庫）');
+    renderAll();
+  }
+}
+
+function setSaveStatus(txt){
+  byId('saveStatus').textContent = txt;
+  byId('formSaveStatus').textContent = txt;
+}
+
+/* ---------------- tabs ---------------- */
+byId('navTabs').addEventListener('click', function(e){
+  var btn = e.target.closest('button[data-tab]');
+  if(!btn) return;
+  switchTab(btn.getAttribute('data-tab'));
+});
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('#navTabs button').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab')===tab);
+  });
+  document.querySelectorAll('.panel').forEach(function(p){
+    p.classList.toggle('active', p.id === 'panel-'+tab);
+  });
+  if(tab==='cards') renderCardMaker();
+  if(tab==='quiz') { buildQuizQueue(); renderQuiz(); }
+  if(tab==='backup') renderBackup();
+}
+byId('btnNewFromBrowse').addEventListener('click', function(){ startNewEntry(); switchTab('edit'); });
+
+/* ---------------- layout toggle ---------------- */
+(function(){
+  var saved = 'auto';
+  try{ saved = localStorage.getItem('pp_layout') || 'auto'; }catch(e){}
+  applyLayout(saved);
+  byId('layoutToggle').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    var mode = btn.getAttribute('data-mode');
+    applyLayout(mode);
+    try{ localStorage.setItem('pp_layout', mode); }catch(err){}
+  });
+  function applyLayout(mode){
+    document.body.setAttribute('data-forcelayout', mode==='auto' ? '' : mode);
+    document.querySelectorAll('#layoutToggle button').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-mode')===mode);
+    });
+  }
+})();
+
+/* ---------------- form helpers ---------------- */
+(function(){
+  var sel = byId('f_pathogenType');
+  PATHOGEN_TYPES.forEach(function(t){
+    var o=document.createElement('option'); o.value=t.key; o.textContent=t.zh; sel.appendChild(o);
+  });
+  sel.addEventListener('change', function(){ fillSubcatOptions(sel.value); scheduleSave(); });
+})();
+function fillSubcatOptions(type){
+  var wrap = byId('f_subCategoryWrap');
+  var sel = byId('f_subCategory');
+  var list = SUBCATS[type]||[];
+  sel.innerHTML='';
+  if(!list.length){ wrap.hidden=true; return; }
+  wrap.hidden=false;
+  var blank=document.createElement('option'); blank.value=''; blank.textContent='（未分類）'; sel.appendChild(blank);
+  list.forEach(function(s){ var o=document.createElement('option'); o.value=s.key; o.textContent=s.zh; sel.appendChild(o); });
+}
+
+function emptyEntry(){
+  return {
+    nameZh:'', nameEn:'', pathogenSci:'', pathogenType:'fungus', subCategory:'',
+    symptoms:'', infectedPart:'', environment:'', diseaseCycle:'',
+    taiwanRecorded:'unknown', taiwanNote:'', quarantine:false,
+    pesticides:'', controlMethods:'', notes:'', mastery:0,
+    photos:[], cardPhotoId:'', createdAt:Date.now(), updatedAt:Date.now()
+  };
+}
+
+function startNewEntry(){
+  currentEditId = null;
+  workingPhotos = [];
+  loadFormFrom(emptyEntry());
+  byId('editTitle').textContent = '新增病害';
+  byId('btnDeleteEntry').hidden = true;
+  setSaveStatus('');
+}
+byId('btnNewEntry').addEventListener('click', startNewEntry);
+
+function loadFormFrom(d){
+  byId('f_nameZh').value = d.nameZh||'';
+  byId('f_nameEn').value = d.nameEn||'';
+  byId('f_pathogenSci').value = d.pathogenSci||'';
+  byId('f_pathogenType').value = d.pathogenType||'fungus';
+  fillSubcatOptions(byId('f_pathogenType').value);
+  byId('f_subCategory').value = d.subCategory||'';
+  byId('f_symptoms').value = d.symptoms||'';
+  byId('f_infectedPart').value = d.infectedPart||'';
+  byId('f_environment').value = d.environment||'';
+  byId('f_diseaseCycle').value = d.diseaseCycle||'';
+  byId('f_taiwanRecorded').value = d.taiwanRecorded||'unknown';
+  byId('f_taiwanNote').value = d.taiwanNote||'';
+  byId('f_quarantine').checked = !!d.quarantine;
+  byId('f_pesticides').value = d.pesticides||'';
+  byId('f_controlMethods').value = d.controlMethods||'';
+  byId('f_notes').value = d.notes||'';
+  byId('f_mastery').value = String(d.mastery||0);
+  workingPhotos = (d.photos||[]).slice();
+  renderPhotoList(d.cardPhotoId||'');
+  updateSciPreview();
+}
+function updateSciPreview(){
+  var v = byId('f_pathogenSci').value;
+  byId('sciPreview').innerHTML = v ? '<span class="sci">'+sciHtml(v)+'</span>' : '';
+}
+byId('f_pathogenSci').addEventListener('input', updateSciPreview);
+
+function collectFormData(){
+  return {
+    nameZh: byId('f_nameZh').value.trim(),
+    nameEn: byId('f_nameEn').value.trim(),
+    pathogenSci: byId('f_pathogenSci').value.trim(),
+    pathogenType: byId('f_pathogenType').value,
+    subCategory: byId('f_subCategory').value,
+    symptoms: byId('f_symptoms').value,
+    infectedPart: byId('f_infectedPart').value.trim(),
+    environment: byId('f_environment').value,
+    diseaseCycle: byId('f_diseaseCycle').value,
+    taiwanRecorded: byId('f_taiwanRecorded').value,
+    taiwanNote: byId('f_taiwanNote').value.trim(),
+    quarantine: byId('f_quarantine').checked,
+    pesticides: byId('f_pesticides').value,
+    controlMethods: byId('f_controlMethods').value,
+    notes: byId('f_notes').value,
+    mastery: Number(byId('f_mastery').value)||0,
+    photos: workingPhotos,
+    cardPhotoId: currentCardPhotoId()
+  };
+}
+function currentCardPhotoId(){
+  var marked = byId('photosWrap').querySelector('.photo-tile.is-card');
+  if(marked) return marked.getAttribute('data-id');
+  return workingPhotos.length ? workingPhotos[0].id : '';
+}
+
+function isEntryBlank(data){
+  return !data.nameZh && !data.nameEn && !data.pathogenSci && !data.symptoms &&
+         !data.environment && !data.diseaseCycle && !data.pesticides && !data.controlMethods &&
+         !data.notes && workingPhotos.length===0;
+}
+
+byId('diseaseForm').addEventListener('input', scheduleSave);
+byId('diseaseForm').addEventListener('change', scheduleSave);
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  setSaveStatus('輸入中…');
+  saveTimer = setTimeout(doSave, 700);
+}
+async function doSave(){
+  if(!dbReady){ setSaveStatus('（此瀏覽器無法儲存）'); return; }
+  var data = collectFormData();
+  if(!currentEditId && isEntryBlank(data)) { setSaveStatus(''); return; }
+  data.updatedAt = Date.now();
+  try{
+    if(!currentEditId){
+      data.createdAt = Date.now();
+      currentEditId = uid();
+      byId('editTitle').textContent = '編輯病害';
+      byId('btnDeleteEntry').hidden = false;
+    }
+    await idbPut(Object.assign({id:currentEditId}, data));
+    diseases[currentEditId] = data;
+    renderBrowse();
+    if(activeTab==='cards') renderCardMaker();
+    setSaveStatus('已自動儲存 · '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  }catch(e){
+    setSaveStatus('儲存失敗：'+(e&&e.message||e));
+  }
+}
+
+byId('btnDeleteEntry').addEventListener('click', async function(){
+  if(!currentEditId) return;
+  if(!confirm('確定要刪除這筆病害資料嗎？此動作無法復原。')) return;
+  try{ await idbDelete(currentEditId); }catch(e){}
+  delete diseases[currentEditId];
+  startNewEntry();
+  switchTab('browse');
+});
+
+/* ---------------- photo upload ---------------- */
+function renderPhotoList(cardPhotoId){
+  var wrap = byId('photosWrap');
+  wrap.innerHTML='';
+  workingPhotos.forEach(function(p){
+    var tile = document.createElement('div');
+    tile.className = 'photo-tile' + (p.id===cardPhotoId || (!cardPhotoId && p===workingPhotos[0]) ? ' is-card' : '');
+    tile.setAttribute('data-id', p.id);
+    tile.innerHTML = '<img src="'+esc(p.url)+'" loading="lazy"><button type="button" class="star" title="設為小卡封面">★</button><button type="button" class="x" title="移除">×</button>';
+    tile.querySelector('.star').addEventListener('click', function(ev){
+      ev.stopPropagation();
+      wrap.querySelectorAll('.photo-tile').forEach(function(t){ t.classList.remove('is-card'); });
+      tile.classList.add('is-card');
+      scheduleSave();
+    });
+    tile.querySelector('.x').addEventListener('click', function(ev){
+      ev.stopPropagation();
+      workingPhotos = workingPhotos.filter(function(x){ return x.id!==p.id; });
+      renderPhotoList(currentCardPhotoId()===p.id ? '' : currentCardPhotoId());
+      scheduleSave();
+    });
+    wrap.appendChild(tile);
+  });
+}
+
+function fileToDataUrl(file, maxDim){
+  return new Promise(function(resolve,reject){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var scale = Math.min(1, maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+        var w = Math.max(1, Math.round(img.naturalWidth*scale));
+        var h = Math.max(1, Math.round(img.naturalHeight*scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.86));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFiles(fileList){
+  var files = Array.prototype.slice.call(fileList).filter(function(f){ return f.type && f.type.indexOf('image/')===0; });
+  for(var i=0;i<files.length;i++){
+    try{
+      var dataUrl = await fileToDataUrl(files[i], 1600);
+      workingPhotos.push({id:uid(), url:dataUrl});
+    }catch(e){
+      console.error('image read failed', e);
+      banner('圖片處理失敗，請換一張試試。');
+    }
+  }
+  renderPhotoList(currentCardPhotoId());
+  scheduleSave();
+}
+var dz = byId('dropzone');
+dz.addEventListener('click', function(){ byId('fileInput').click(); });
+byId('fileInput').addEventListener('change', function(e){ handleFiles(e.target.files); e.target.value=''; });
+dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('drag'); });
+dz.addEventListener('drop', function(e){
+  e.preventDefault(); dz.classList.remove('drag');
+  if(e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+});
+document.addEventListener('paste', function(e){
+  if(activeTab!=='edit') return;
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  var files=[];
+  for(var i=0;i<items.length;i++){
+    if(items[i].type && items[i].type.indexOf('image/')===0){
+      var f = items[i].getAsFile();
+      if(f) files.push(f);
+    }
+  }
+  if(files.length){ e.preventDefault(); handleFiles(files); }
+});
+
+/* ---------------- grouping / sorting ---------------- */
+function groupedList(filterFn){
+  var out = [];
+  PATHOGEN_TYPES.forEach(function(cat){
+    var items = Object.keys(diseases).map(function(id){ return Object.assign({_id:id}, diseases[id]); })
+      .filter(function(d){ return d.pathogenType===cat.key && (!filterFn || filterFn(d)); });
+    if(!items.length) return;
+    var subs = SUBCATS[cat.key]||[];
+    var subGroups = [];
+    if(subs.length){
+      subs.forEach(function(s){
+        var subItems = items.filter(function(d){ return (d.subCategory||'')===s.key; });
+        if(subItems.length) subGroups.push({sub:s, items:sortByGenus(subItems)});
+      });
+      var unassigned = items.filter(function(d){ return !subs.some(function(s){ return s.key===(d.subCategory||''); }); });
+      if(unassigned.length) subGroups.push({sub:{key:'', zh:'未分類'}, items:sortByGenus(unassigned)});
+    } else {
+      subGroups.push({sub:null, items:sortByGenus(items)});
+    }
+    out.push({cat:cat, subGroups:subGroups, count:items.length});
+  });
+  return out;
+}
+function sortByGenus(items){
+  items.sort(function(a,b){
+    var ga=genusOf(a.pathogenSci).toLowerCase(), gb=genusOf(b.pathogenSci).toLowerCase();
+    if(ga<gb) return -1; if(ga>gb) return 1;
+    var sa=(a.pathogenSci||'').toLowerCase(), sb=(b.pathogenSci||'').toLowerCase();
+    if(sa<sb) return -1; if(sa>sb) return 1;
+    return (a.nameZh||'').localeCompare(b.nameZh||'');
+  });
+  return items;
+}
+
+/* ---------------- browse render ---------------- */
+var activeCatFilter = 'all';
+function buildCatChips(){
+  var bar = byId('catChips');
+  bar.innerHTML='';
+  var all = document.createElement('button'); all.className='chip'+(activeCatFilter==='all'?' active':''); all.textContent='全部';
+  all.addEventListener('click', function(){ activeCatFilter='all'; buildCatChips(); renderBrowse(); });
+  bar.appendChild(all);
+  PATHOGEN_TYPES.forEach(function(t){
+    var c=document.createElement('button'); c.className='chip'+(activeCatFilter===t.key?' active':''); c.textContent=t.zh;
+    c.addEventListener('click', function(){ activeCatFilter=t.key; buildCatChips(); renderBrowse(); });
+    bar.appendChild(c);
+  });
+}
+byId('searchBox').addEventListener('input', renderBrowse);
+
+function matchesSearch(d, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  return [d.nameZh,d.nameEn,d.pathogenSci,genusOf(d.pathogenSci)].some(function(v){
+    return (v||'').toLowerCase().indexOf(q) !== -1;
+  });
+}
+function taiwanBadge(d){
+  if(d.taiwanRecorded==='yes') return '<span class="badge on-tw">台灣有紀錄</span>';
+  if(d.taiwanRecorded==='no') return '<span class="badge">台灣尚未發現</span>';
+  return '';
+}
+function thumbUrl(d){
+  if(d.cardPhotoId){
+    var p=(d.photos||[]).find(function(x){ return x.id===d.cardPhotoId; });
+    if(p) return p.url;
+  }
+  return (d.photos&&d.photos[0]) ? d.photos[0].url : '';
+}
+function renderBrowse(){
+  var q = byId('searchBox').value.trim();
+  var list = groupedList(function(d){ return (activeCatFilter==='all'||d.pathogenType===activeCatFilter) && matchesSearch(d,q); });
+  var host = byId('browseResults');
+  if(!Object.keys(diseases).length){
+    host.innerHTML = '<div class="empty-state">尚未建立任何病害資料。<br>點右上「+ 新增病害」開始建立你的病害資料庫。</div>';
+    return;
+  }
+  if(!list.length){ host.innerHTML = '<div class="empty-state">找不到符合條件的病害。</div>'; return; }
+  var html='';
+  list.forEach(function(g){
+    html += '<div class="cat-block"><div class="cat-head"><h2>'+esc(g.cat.zh)+'</h2><span class="count">'+g.count+' 種</span></div>';
+    g.subGroups.forEach(function(sg){
+      if(sg.sub) html += '<div class="sub-head">'+esc(sg.sub.zh)+'</div>';
+      html += '<div class="browse-grid">';
+      sg.items.forEach(function(d){
+        var url = thumbUrl(d);
+        html += '<div class="dcard" data-id="'+esc(d._id)+'">'+
+          '<div class="thumb">'+(url?'<img src="'+esc(url)+'" loading="lazy">':'無照片')+'</div>'+
+          '<div class="body">'+
+            '<span class="mastery-dot m'+(d.mastery||0)+'"></span>'+
+            '<span class="zh">'+esc(d.nameZh||'（未命名）')+'</span>'+
+            (d.nameEn?'<div class="en">'+esc(d.nameEn)+'</div>':'')+
+            (d.pathogenSci?'<span class="sci">'+sciHtml(d.pathogenSci)+'</span>':'')+
+            '<div class="badges">'+(d.quarantine?'<span class="badge on-q">檢疫對象</span>':'')+taiwanBadge(d)+'</div>'+
+          '</div></div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  host.innerHTML = html;
+  host.querySelectorAll('.dcard').forEach(function(card){
+    card.addEventListener('click', function(){
+      var id = card.getAttribute('data-id');
+      openForEdit(id);
+    });
+  });
+}
+function openForEdit(id){
+  var d = diseases[id];
+  if(!d) return;
+  currentEditId = id;
+  loadFormFrom(d);
+  byId('editTitle').textContent = '編輯病害';
+  byId('btnDeleteEntry').hidden = false;
+  setSaveStatus('');
+  switchTab('edit');
+}
+
+function renderAll(){
+  renderBrowse();
+  if(activeTab==='cards') renderCardMaker();
+  if(activeTab==='backup') renderBackup();
+}
+buildCatChips();
+
+/* ---------------- card maker ---------------- */
+byId('cardPreset').addEventListener('change', function(){
+  byId('customSizeWrap').hidden = this.value !== 'custom';
+  if(this.value!=='custom'){
+    var parts=this.value.split('x');
+    byId('cardW').value=parts[0]; byId('cardH').value=parts[1];
+  }
+  renderCardMaker();
+});
+['cardW','cardH','pageSize','pageMargin','cardGap'].forEach(function(id){
+  byId(id).addEventListener('input', renderCardMaker);
+});
+byId('cardMode').addEventListener('change', renderCardMaker);
+byId('btnSelAll').addEventListener('click', function(){
+  Object.keys(diseases).forEach(function(id){ selectedCardIds[id]=true; });
+  renderCardMaker();
+});
+byId('btnSelNone').addEventListener('click', function(){ selectedCardIds={}; renderCardMaker(); });
+
+function pageDims(size){
+  return size==='Letter' ? {w:215.9,h:279.4} : {w:210,h:297};
+}
+function cardDims(){
+  var preset = byId('cardPreset').value;
+  if(preset==='custom') return {w:Number(byId('cardW').value)||74, h:Number(byId('cardH').value)||105};
+  var parts = preset.split('x');
+  return {w:Number(parts[0]), h:Number(parts[1])};
+}
+function gridFor(mode, page, margin, gap, card){
+  if(mode==='fold'){
+    var unitW = card.w*2;
+    var cols = Math.max(1, Math.floor((page.w - 2*margin + gap) / (unitW + gap)));
+    var rows = Math.max(1, Math.floor((page.h - 2*margin + gap) / (card.h + gap)));
+    return {cols:cols, rows:rows, unitW:unitW, unitH:card.h, perPage:cols*rows};
+  }
+  var cols = Math.max(1, Math.floor((page.w - 2*margin + gap) / (card.w + gap)));
+  var rows = Math.max(1, Math.floor((page.h - 2*margin + gap) / (card.h + gap)));
+  return {cols:cols, rows:rows, unitW:card.w, unitH:card.h, perPage:cols*rows};
+}
+function renderCardMaker(){
+  var mode = byId('cardMode').value;
+  byId('foldHintWrap').hidden = mode!=='fold';
+  byId('duplexOptionsWrap').hidden = mode!=='duplex';
+  var page = pageDims(byId('pageSize').value);
+  var margin = Number(byId('pageMargin').value)||0;
+  var gap = Number(byId('cardGap').value)||0;
+  var card = cardDims();
+  var g = gridFor(mode, page, margin, gap, card);
+  byId('gridInfo').textContent = mode==='fold'
+    ? '每頁 '+g.cols+' × '+g.rows+' = '+g.perPage+' 張小卡（'+byId('pageSize').value+'，單面列印）'
+    : '每頁 '+g.cols+' × '+g.rows+' = '+g.perPage+' 張小卡（'+byId('pageSize').value+'，需雙面列印 2 頁／每頁病害）';
+
+  var pick = byId('pickList');
+  var grouped = groupedList(null);
+  var html='';
+  if(!grouped.length){ html = '<div class="hint">尚無病害資料。</div>'; }
+  grouped.forEach(function(g){
+    html += '<div class="pick-sub">'+esc(g.cat.zh)+'</div>';
+    g.subGroups.forEach(function(sg){
+      sg.items.forEach(function(d){
+        var checked = selectedCardIds[d._id] ? 'checked' : '';
+        var url = thumbUrl(d);
+        html += '<label class="pick-row"><input type="checkbox" data-id="'+esc(d._id)+'" '+checked+'>'+
+          '<span class="swatch">'+(url?'<img src="'+esc(url)+'">':'')+'</span>'+
+          '<span>'+esc(d.nameZh||d.nameEn||'（未命名）')+'</span></label>';
+      });
+    });
+  });
+  pick.innerHTML = html;
+  pick.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var id = cb.getAttribute('data-id');
+      if(cb.checked) selectedCardIds[id]=true; else delete selectedCardIds[id];
+      byId('selCount').textContent = Object.keys(selectedCardIds).length + ' 筆已選取';
+    });
+  });
+  byId('selCount').textContent = Object.keys(selectedCardIds).length + ' 筆已選取';
+
+  var prev = byId('cardPreview');
+  var pw = 140;
+  var frontBox = '<div style="width:100%;height:100%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);box-sizing:border-box;">封面照片</div>';
+  var backBox = '<div style="width:100%;height:100%;background:var(--surface);padding:4px 6px;font-size:9px;line-height:1.3;box-sizing:border-box;"><b>中文病名</b><br><i style="color:var(--accent-2)">Scientific name</i></div>';
+  if(mode==='fold'){
+    prev.innerHTML = '<div style="width:'+(pw*2)+'px;aspect-ratio:'+(card.w*2)+'/'+card.h+';border:1px dashed var(--line);border-radius:4px;overflow:hidden;background:var(--surface);display:flex;position:relative;">'
+      + '<div style="width:50%;height:100%;">'+frontBox+'</div>'
+      + '<div style="width:50%;height:100%;">'+backBox+'</div>'
+      + '<div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed var(--accent-2);"></div>'
+      + '</div>'
+      + '<div class="hint" style="margin-top:6px;">剪下整塊（虛線外框），沿中間虛線對折</div>';
+  } else {
+    prev.innerHTML = '<div style="display:flex;gap:10px;">'
+      + '<div><div style="width:'+pw+'px;aspect-ratio:'+card.w+'/'+card.h+';border:1px dashed var(--line);border-radius:4px;overflow:hidden;">'+frontBox+'</div><div class="hint" style="margin-top:4px;">正面頁</div></div>'
+      + '<div><div style="width:'+pw+'px;aspect-ratio:'+card.w+'/'+card.h+';border:1px dashed var(--line);border-radius:4px;overflow:hidden;">'+backBox+'</div><div class="hint" style="margin-top:4px;">反面頁</div></div>'
+      + '</div>';
+  }
+}
+
+async function imageInfoFromUrl(url){
+  var dataUrl = url;
+  if(!/^data:/i.test(url)){
+    var resp = await fetch(url);
+    var blob = await resp.blob();
+    dataUrl = await new Promise(function(res,rej){
+      var r = new FileReader();
+      r.onload = function(){ res(r.result); };
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+  var dims = await new Promise(function(res,rej){
+    var img = new Image();
+    img.onload = function(){ res({width:img.naturalWidth, height:img.naturalHeight}); };
+    img.onerror = rej;
+    img.src = dataUrl;
+  });
+  var format = /^data:image\/png/i.test(dataUrl) ? 'PNG' : 'JPEG';
+  return {dataUrl:dataUrl, width:dims.width, height:dims.height, format:format};
+}
+
+var PX_PER_MM = 200/25.4; // ~200dpi offscreen render resolution
+function mmpx(v){ return v*PX_PER_MM; }
+
+function frontCellHtml(d, imgCache, wpx, hpx, bordered){
+  var url = thumbUrl(d);
+  var info = url ? imgCache[url] : null;
+  var inner = info
+    ? '<img src="'+info.dataUrl+'" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">'
+    : '<div style="color:#9a9a8c;font-family:\'Noto Sans TC\',sans-serif;font-size:'+Math.round(wpx*0.05)+'px;">（無照片）</div>';
+  var borderCss = bordered ? 'border:'+Math.max(1,mmpx(0.3))+'px dashed #999;' : '';
+  return '<div style="width:100%;height:100%;box-sizing:border-box;'+borderCss+
+    'display:flex;align-items:center;justify-content:center;background:#ffffff;overflow:hidden;">'+inner+'</div>';
+}
+function backCellHtml(d, wpx, hpx, bordered){
+  var padPx = wpx*0.065;
+  var nameSize = wpx*0.125;
+  var enSize = wpx*0.055;
+  var sciSize = wpx*0.072;
+  var bodySize = wpx*0.05;
+  var pest = (d.pesticides||'').trim() || '（尚未填寫登記農藥）';
+  var clampLines = Math.max(2, Math.floor((hpx*0.40)/(bodySize*1.4)));
+  var quarantineBadge = d.quarantine
+    ? '<div style="position:absolute;top:'+(padPx*0.55)+'px;right:'+(padPx*0.55)+'px;background:#a3312a;color:#fff;font-weight:900;'+
+      'font-size:'+(wpx*0.042)+'px;padding:'+(wpx*0.02)+'px '+(wpx*0.035)+'px;border-radius:999px;font-family:\'Noto Sans TC\',sans-serif;white-space:nowrap;">⚠ 檢疫對象</div>'
+    : '';
+  var borderCss = bordered ? 'border:'+Math.max(1,mmpx(0.3))+'px dashed #999;' : '';
+  return '<div style="position:relative;width:100%;height:100%;box-sizing:border-box;'+borderCss+
+    'background:#fffdf7;padding:'+padPx+'px;display:flex;flex-direction:column;justify-content:center;gap:'+(padPx*0.4)+'px;overflow:hidden;">'+
+    quarantineBadge+
+    '<div style="font-family:\'Noto Serif TC\',serif;font-weight:900;font-size:'+nameSize+'px;line-height:1.18;color:#1d1c14;word-break:break-word;">'+esc(d.nameZh||'（未命名）')+'</div>'+
+    (d.nameEn ? '<div style="font-family:\'Noto Sans TC\',sans-serif;font-size:'+enSize+'px;color:#6b6552;">'+esc(d.nameEn)+'</div>' : '')+
+    (d.pathogenSci ? '<div class="sci" style="font-weight:600;font-size:'+sciSize+'px;color:#a8512c;word-break:break-word;">'+sciHtml(d.pathogenSci)+'</div>' : '')+
+    '<div style="border-top:'+Math.max(1,mmpx(0.25))+'px dashed #cfc6a9;margin-top:'+(padPx*0.25)+'px;padding-top:'+(padPx*0.35)+'px;'+
+      'font-family:\'Noto Sans TC\',sans-serif;font-size:'+bodySize+'px;color:#3a3828;white-space:pre-wrap;line-height:1.4;'+
+      'display:-webkit-box;-webkit-line-clamp:'+clampLines+';-webkit-box-orient:vertical;overflow:hidden;">'+
+      '<b>防治／登記農藥：</b>\n'+esc(pest)+'</div>'+
+    '</div>';
+}
+function unitCellHtml(d, imgCache, unitWpx, unitHpx){
+  var halfW = unitWpx/2;
+  var outerBorder = Math.max(1,mmpx(0.3));
+  var foldW = Math.max(1,mmpx(0.25));
+  return '<div style="position:relative;width:100%;height:100%;box-sizing:border-box;border:'+outerBorder+'px dashed #999;overflow:hidden;display:flex;background:#ffffff;">'+
+    '<div style="width:50%;height:100%;box-sizing:border-box;">'+frontCellHtml(d, imgCache, halfW, unitHpx, false)+'</div>'+
+    '<div style="width:50%;height:100%;box-sizing:border-box;">'+backCellHtml(d, halfW, unitHpx, false)+'</div>'+
+    '<div style="position:absolute;left:50%;top:0;bottom:0;width:0;border-left:'+foldW+'px dashed #c0693f;"></div>'+
+    '</div>';
+}
+
+function downloadBlob(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+
+byId('btnGeneratePdf').addEventListener('click', async function(){
+  var ids = Object.keys(selectedCardIds).filter(function(id){ return diseases[id]; });
+  if(!ids.length){ byId('pdfStatus').textContent = '請先選取至少一筆病害。'; return; }
+  if(!window.jspdf || !window.html2canvas){ byId('pdfStatus').textContent = 'PDF 函式庫載入失敗，請重新整理頁面再試一次。'; return; }
+  byId('btnGeneratePdf').disabled = true;
+  var offscreenEls = [];
+  try{
+    byId('pdfStatus').textContent = '準備中…';
+    var mode = byId('cardMode').value;
+    var page = pageDims(byId('pageSize').value);
+    var margin = Number(byId('pageMargin').value)||0;
+    var gap = Number(byId('cardGap').value)||0;
+    var card = cardDims();
+    var g = gridFor(mode, page, margin, gap, card);
+    var perPage = g.perPage;
+    var mirror = byId('duplexMirror').checked;
+
+    var items = sortByGenus(ids.map(function(id){ return Object.assign({_id:id}, diseases[id]); }));
+
+    var imgCache = {};
+    var failedImages = 0;
+    for(var i=0;i<items.length;i++){
+      var url = thumbUrl(items[i]);
+      if(url && !(url in imgCache)){
+        try{ imgCache[url] = await imageInfoFromUrl(url); }
+        catch(e){ imgCache[url] = null; failedImages++; }
+      }
+    }
+
+    try{
+      await Promise.all([
+        document.fonts.load('900 '+Math.round(mmpx(card.w*0.125))+'px "Noto Serif TC"'),
+        document.fonts.load('italic 600 '+Math.round(mmpx(card.w*0.072))+'px "EB Garamond"'),
+        document.fonts.load('400 '+Math.round(mmpx(card.w*0.05))+'px "Noto Sans TC"')
+      ]);
+      await document.fonts.ready;
+    }catch(e){ /* best effort */ }
+
+    function cellPos(idx, mirrored){
+      var r = Math.floor(idx/g.cols), c = idx%g.cols;
+      if(mirrored) c = g.cols-1-c;
+      return {x: margin + c*(card.w+gap), y: margin + r*(card.h+gap)};
+    }
+    function unitPos(idx){
+      var r = Math.floor(idx/g.cols), c = idx%g.cols;
+      return {x: margin + c*(g.unitW+gap), y: margin + r*(g.unitH+gap)};
+    }
+    function buildPageEl(items, startIdx, mirrored, isBack){
+      var el = document.createElement('div');
+      el.style.cssText = 'position:fixed;left:-20000px;top:0;width:'+mmpx(page.w)+'px;height:'+mmpx(page.h)+'px;background:#ffffff;overflow:hidden;';
+      for(var k=0;k<perPage;k++){
+        var idx = startIdx+k;
+        if(idx>=items.length) break;
+        var pos = cellPos(k, mirrored);
+        var cell = document.createElement('div');
+        cell.style.cssText = 'position:absolute;left:'+mmpx(pos.x)+'px;top:'+mmpx(pos.y)+'px;width:'+mmpx(card.w)+'px;height:'+mmpx(card.h)+'px;';
+        cell.innerHTML = isBack ? backCellHtml(items[idx], mmpx(card.w), mmpx(card.h), true) : frontCellHtml(items[idx], imgCache, mmpx(card.w), mmpx(card.h), true);
+        el.appendChild(cell);
+      }
+      document.body.appendChild(el);
+      offscreenEls.push(el);
+      return el;
+    }
+    function buildFoldPageEl(items, startIdx){
+      var el = document.createElement('div');
+      el.style.cssText = 'position:fixed;left:-20000px;top:0;width:'+mmpx(page.w)+'px;height:'+mmpx(page.h)+'px;background:#ffffff;overflow:hidden;';
+      for(var k=0;k<perPage;k++){
+        var idx = startIdx+k;
+        if(idx>=items.length) break;
+        var pos = unitPos(k);
+        var cell = document.createElement('div');
+        cell.style.cssText = 'position:absolute;left:'+mmpx(pos.x)+'px;top:'+mmpx(pos.y)+'px;width:'+mmpx(g.unitW)+'px;height:'+mmpx(g.unitH)+'px;';
+        cell.innerHTML = unitCellHtml(items[idx], imgCache, mmpx(g.unitW), mmpx(g.unitH));
+        el.appendChild(cell);
+      }
+      document.body.appendChild(el);
+      offscreenEls.push(el);
+      return el;
+    }
+
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({unit:'mm', format:[page.w, page.h]});
+    var pageCount = Math.ceil(items.length/perPage);
+    var first = true;
+
+    if(mode==='fold'){
+      for(var pf=0;pf<pageCount;pf++){
+        byId('pdfStatus').textContent = '繪製第 '+(pf+1)+'/'+pageCount+' 頁…';
+        var uel = buildFoldPageEl(items, pf*perPage);
+        var ucanvas = await window.html2canvas(uel, {scale:1, backgroundColor:'#ffffff', useCORS:true, logging:false});
+        if(!first) doc.addPage([page.w,page.h]);
+        first = false;
+        doc.addImage(ucanvas.toDataURL('image/jpeg',0.92), 'JPEG', 0, 0, page.w, page.h);
+        document.body.removeChild(uel);
+      }
+    } else {
+      for(var p=0;p<pageCount;p++){
+        byId('pdfStatus').textContent = '繪製正面第 '+(p+1)+'/'+pageCount+' 頁…';
+        var fel = buildPageEl(items, p*perPage, false, false);
+        var fcanvas = await window.html2canvas(fel, {scale:1, backgroundColor:'#ffffff', useCORS:true, logging:false});
+        if(!first) doc.addPage([page.w,page.h]);
+        first = false;
+        doc.addImage(fcanvas.toDataURL('image/jpeg',0.92), 'JPEG', 0, 0, page.w, page.h);
+        document.body.removeChild(fel);
+      }
+      for(var p2=0;p2<pageCount;p2++){
+        byId('pdfStatus').textContent = '繪製背面第 '+(p2+1)+'/'+pageCount+' 頁…';
+        var bel = buildPageEl(items, p2*perPage, mirror, true);
+        var bcanvas = await window.html2canvas(bel, {scale:1, backgroundColor:'#ffffff', useCORS:true, logging:false});
+        doc.addPage([page.w,page.h]);
+        doc.addImage(bcanvas.toDataURL('image/jpeg',0.92), 'JPEG', 0, 0, page.w, page.h);
+        document.body.removeChild(bel);
+      }
+    }
+
+    byId('pdfStatus').textContent = '輸出檔案中…';
+    var blob = doc.output('blob');
+    downloadBlob(blob, '植病小卡_'+items.length+'張.pdf');
+    byId('pdfStatus').textContent = '完成！已下載。'+(failedImages? ' 有 '+failedImages+' 張照片讀取失敗，已以文字占位。':'');
+  }catch(e){
+    console.error(e);
+    byId('pdfStatus').textContent = '產生失敗：'+(e&&(e.message)||e);
+  }finally{
+    offscreenEls.forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); });
+    byId('btnGeneratePdf').disabled = false;
+  }
+});
+
+/* ---------------- quiz ---------------- */
+function buildQuizQueue(){
+  var pool = Object.keys(diseases).filter(function(id){
+    return quizFilterType==='all' || diseases[id].pathogenType===quizFilterType;
+  });
+  quizQueue = pool;
+  quizIndex = 0;
+}
+function shuffleQueue(){
+  for(var i=quizQueue.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var t=quizQueue[i]; quizQueue[i]=quizQueue[j]; quizQueue[j]=t;
+  }
+  quizIndex=0;
+}
+function renderQuizChips(){
+  var bar = byId('quizFilterChips');
+  bar.innerHTML='';
+  var all=document.createElement('button'); all.className='chip'+(quizFilterType==='all'?' active':''); all.textContent='全部';
+  all.addEventListener('click', function(){ quizFilterType='all'; renderQuizChips(); buildQuizQueue(); renderQuiz(); });
+  bar.appendChild(all);
+  PATHOGEN_TYPES.forEach(function(t){
+    var c=document.createElement('button'); c.className='chip'+(quizFilterType===t.key?' active':''); c.textContent=t.zh;
+    c.addEventListener('click', function(){ quizFilterType=t.key; renderQuizChips(); buildQuizQueue(); renderQuiz(); });
+    bar.appendChild(c);
+  });
+}
+renderQuizChips();
+function renderQuiz(){
+  var card = byId('quizCard');
+  card.classList.remove('flipped');
+  var front = byId('quizFront'), back = byId('quizBack');
+  if(!quizQueue.length){
+    byId('quizMeta').textContent='尚無符合條件的病害卡片';
+    front.innerHTML='（請先新增病害資料）';
+    back.innerHTML='';
+    return;
+  }
+  var d = diseases[quizQueue[quizIndex]];
+  byId('quizMeta').textContent = (quizIndex+1)+' / '+quizQueue.length+'　點擊卡片翻面';
+  var url = thumbUrl(d);
+  front.innerHTML = url ? '<img src="'+esc(url)+'">' : '（此病害尚無照片）';
+  back.innerHTML = '<div class="zh">'+esc(d.nameZh||'（未命名）')+'</div>'+
+    (d.nameEn?'<div class="en">'+esc(d.nameEn)+'</div>':'')+
+    (d.pathogenSci?'<div class="sci">'+sciHtml(d.pathogenSci)+'</div>':'')+
+    '<div class="pest">'+esc((d.pesticides||'').trim()||'（尚未填寫登記農藥）')+'</div>';
+}
+byId('quizCard').addEventListener('click', function(){ this.classList.toggle('flipped'); });
+byId('btnQuizNext').addEventListener('click', function(){ if(!quizQueue.length) return; quizIndex=(quizIndex+1)%quizQueue.length; renderQuiz(); });
+byId('btnQuizPrev').addEventListener('click', function(){ if(!quizQueue.length) return; quizIndex=(quizIndex-1+quizQueue.length)%quizQueue.length; renderQuiz(); });
+byId('btnQuizShuffle').addEventListener('click', function(){ shuffleQueue(); renderQuiz(); });
+async function setMastery(val){
+  if(!quizQueue.length || !dbReady) return;
+  var id = quizQueue[quizIndex];
+  diseases[id].mastery = val;
+  try{ await idbPut(Object.assign({id:id}, diseases[id])); }catch(e){}
+  renderBrowse();
+  byId('btnQuizNext').click();
+}
+byId('btnQuizMarkWeak').addEventListener('click', function(){ setMastery(1); });
+byId('btnQuizMarkGood').addEventListener('click', function(){ setMastery(2); });
+
+/* ---------------- backup ---------------- */
+async function renderBackup(){
+  var info = byId('usageInfo'), bar = byId('usageBar');
+  if(!(navigator.storage && navigator.storage.estimate)){ info.textContent='此瀏覽器不支援儲存空間查詢。'; return; }
+  try{
+    var est = await navigator.storage.estimate();
+    var mb = function(b){ return ((b||0)/1048576).toFixed(1); };
+    info.textContent = mb(est.usage)+' MB 已使用 / 約 '+mb(est.quota)+' MB 配額（僅供參考，實際可用空間依瀏覽器而定）';
+    bar.style.width = Math.min(100, (est.usage/(est.quota||1))*100)+'%';
+  }catch(e){ info.textContent='讀取失敗：'+(e&&e.message||e); }
+}
+byId('btnExportJson').addEventListener('click', function(){
+  var payload = JSON.stringify({exportedAt:new Date().toISOString(), diseases:diseases}, null, 2);
+  downloadBlob(new Blob([payload],{type:'application/json'}), '植病病害卡_備份.json');
+});
+byId('btnImportFile').addEventListener('click', function(){ byId('importFile').click(); });
+byId('importFile').addEventListener('change', function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){ byId('importBox').value = reader.result; };
+  reader.readAsText(f);
+  e.target.value='';
+});
+byId('btnImportJson').addEventListener('click', async function(){
+  var status = byId('importStatus');
+  if(!dbReady){ status.textContent='此瀏覽器無法寫入資料庫。'; return; }
+  var raw = byId('importBox').value.trim();
+  if(!raw){ status.textContent='請先貼上或選擇 JSON 內容。'; return; }
+  try{
+    var parsed = JSON.parse(raw);
+    var map = parsed.diseases || parsed;
+    var ids = Object.keys(map);
+    if(!ids.length){ status.textContent='找不到可匯入的病害資料。'; return; }
+    if(!confirm('將匯入 '+ids.length+' 筆病害資料，相同 ID 會被覆蓋，確定繼續？')) return;
+    status.textContent = '匯入中…';
+    for(var i=0;i<ids.length;i++){
+      await idbPut(Object.assign({id:ids[i]}, map[ids[i]]));
+      diseases[ids[i]] = map[ids[i]];
+    }
+    status.textContent = '已匯入 '+ids.length+' 筆。';
+    byId('importBox').value='';
+    renderBrowse();
+  }catch(e){
+    status.textContent = '匯入失敗：'+(e&&(e.message)||e);
+  }
+});
+
+/* ---------------- boot ---------------- */
+initApp();
+})();
+</script>
+</body>
+</html>
