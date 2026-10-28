@@ -42,7 +42,7 @@ body{
   font-size:14px; line-height:1.5;
 }
 h1,h2,h3,.disp{font-family:"Noto Serif TC","Noto Serif",serif;}
-.sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif;}
+.sci{font-family:"Times New Roman",Times,"Noto Serif TC",serif;}
 .sci i{font-style:italic;}
 .sci .roman{font-style:normal;}
 .sci-preview{font-size:14px; margin-top:4px; min-height:18px; color:var(--accent-2);}
@@ -122,7 +122,7 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .dcard .thumb{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px;}
 .dcard .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
 .dcard .body{padding:8px 10px 10px;}
-.dcard .sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif; font-weight:700; font-size:14px; color:var(--accent-2); display:block; line-height:1.3;}
+.dcard .sci{font-family:"Times New Roman",Times,"Noto Serif TC",serif; font-weight:700; font-size:14px; color:var(--accent-2); display:block; line-height:1.3;}
 .dcard .zh{font-weight:600; font-size:12px; color:var(--ink); margin-top:3px; display:block;}
 .dcard .en{font-size:11px; color:var(--muted);}
 .badges{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;}
@@ -192,7 +192,7 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .detail-body{padding:14px 18px 6px;}
 .detail-name-zh{font-family:"Noto Serif TC",serif; font-size:26px; font-weight:900; line-height:1.28;}
 .detail-name-en{font-size:14px; color:var(--muted); margin-top:3px;}
-.detail-sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif; font-size:19px; color:var(--accent-2); margin-top:8px;}
+.detail-sci{font-family:"Times New Roman",Times,"Noto Serif TC",serif; font-size:19px; color:var(--accent-2); margin-top:8px;}
 .detail-badges{margin:12px 0 2px; display:flex; gap:6px; flex-wrap:wrap;}
 .detail-section{margin:14px 18px; padding-top:12px; border-top:1px dashed var(--line);}
 .detail-section h3{font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; margin:0 0 6px; font-weight:700;}
@@ -1226,9 +1226,9 @@ function frontCellHtml(d, imgCache, wpx, hpx, bordered){
 }
 function backCellHtml(d, wpx, hpx, bordered){
   var padPx = wpx*0.065;
-  var nameSize = wpx*0.125;
+  var nameSize = wpx*0.082; // sized so a 10-character Chinese name fits on one line within the card's padded width
   var enSize = wpx*0.055;
-  var sciSize = wpx*0.072;
+  var sciSize = wpx*0.066; // narrower Times New Roman + slightly smaller so long binomials stay on one line
   var bodySize = wpx*0.05;
   var pest = (d.pesticides||'').trim() || '（尚未填寫登記農藥）';
   var clampLines = Math.max(2, Math.floor((hpx*0.40)/(bodySize*1.4)));
