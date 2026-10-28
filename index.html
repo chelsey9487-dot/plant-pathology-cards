@@ -1284,6 +1284,28 @@ function isTouchPrimaryDevice(){
 // possible. Falls back to the <a download> trick (plus a persistent link) if sharing isn't
 // available, isn't preferred on this device, or the user dismisses the share sheet.
 async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType){
+  // Where supported (desktop Chrome/Edge), this is the best option: a native "Save As" dialog
+  // where the user picks the destination folder, with no page navigation at all.
+  if(window.showSaveFilePicker && !isTouchPrimaryDevice()){
+    try{
+      var ext = '.'+filename.split('.').pop();
+      var handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{description: filename, accept: (function(){ var a={}; a[mimeType||blob.type]=[ext]; return a; })()}]
+      });
+      var writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      if(statusEl) statusEl.innerHTML = '完成！已儲存。'+(noteHtml||'');
+      return;
+    }catch(pickerErr){
+      if(pickerErr && pickerErr.name === 'AbortError'){
+        if(statusEl) statusEl.textContent = '已取消儲存。';
+        return;
+      }
+      // picker failed for some other reason (older/unsupported browser quirk) — fall through
+    }
+  }
   if(isTouchPrimaryDevice()){
     try{
       if(navigator.canShare && window.File){
