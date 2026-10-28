@@ -1268,25 +1268,50 @@ function blobToDataUri(blob){
     r.readAsDataURL(blob);
   });
 }
-// iOS/iPadOS Safari's support for the <a download> attribute is unreliable (it often navigates
-// to/displays the content instead of saving a file), so on those devices the Share Sheet (Web
-// Share API with a File, which offers "Save to Files") is the reliable path. Desktop Safari/macOS
-// does NOT have that problem — plain <a download> saves straight to ~/Downloads — and its share
-// sheet doesn't even offer a "save to disk" option, so Share would be a worse experience there.
-// Route by device instead of always preferring Share.
-function isTouchPrimaryDevice(){
-  return /iPhone|iPod|Android/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints > 1 && /Mac/i.test(navigator.platform)); // iPadOS reports as "Mac" but has touch
+// WebKit (Safari, incl. macOS) deliberately blocks data:/blob: URLs from opening as a new
+// top-level browsing context — a "download" link to one gets silently redirected into navigating
+// the CURRENT tab instead, regardless of target="_blank" or the download attribute. That's the
+// repeated "leaves the app and shows raw text" failure. There is no reliable workaround for that
+// specific combination, so <a download> is now only the very last resort, after:
+//   1. showSaveFilePicker — a real native "Save As" dialog, Chrome/Edge desktop only.
+//   2. Web Share — confirmed to actually open the native Share Sheet without navigating away, on
+//      every platform including this app's Safari/macOS testing, so it's tried unconditionally.
+//   3. an in-page "copy the text" modal for text files (JSON) — this NEVER navigates, guaranteed.
+// Only if none of those apply do we fall back to the historically-unreliable <a download> link.
+function showTextFallbackModal(text, filename){
+  var overlay = document.createElement('div');
+  overlay.className = 'detail-overlay';
+  var sheet = document.createElement('div');
+  sheet.className = 'detail-sheet';
+  sheet.style.maxWidth = '640px';
+  sheet.innerHTML = '<div style="padding:18px;">'
+    + '<h3 style="margin:0 0 6px;font-family:\'Noto Serif TC\',serif;">瀏覽器無法自動存檔，請手動複製</h3>'
+    + '<p class="hint" style="margin:0 0 10px;">按下面「全選並複製」，再貼到備忘錄／文字編輯器存成檔案即可，檔名建議：<b>'+esc(filename)+'</b></p>'
+    + '<textarea readonly style="width:100%;height:320px;font-family:monospace;font-size:11px;"></textarea>'
+    + '<div class="form-actions" style="margin-top:10px;">'
+    + '<button type="button" class="btn primary" data-act="copy">全選並複製</button>'
+    + '<button type="button" class="btn" data-act="close">關閉</button>'
+    + '</div></div>';
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  var ta = sheet.querySelector('textarea');
+  ta.value = text;
+  function close(){ if(overlay.parentNode) document.body.removeChild(overlay); }
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) close(); });
+  sheet.querySelector('[data-act="close"]').addEventListener('click', close);
+  sheet.querySelector('[data-act="copy"]').addEventListener('click', async function(){
+    ta.focus(); ta.select();
+    var btn = sheet.querySelector('[data-act="copy"]');
+    try{ await navigator.clipboard.writeText(text); btn.textContent = '已複製！'; }
+    catch(e){ try{ document.execCommand('copy'); btn.textContent = '已複製！'; }catch(e2){ btn.textContent = '請手動 Cmd/Ctrl+C 複製'; } }
+  });
 }
-// IMPORTANT: navigator.share() must be called with the click's "user activation" still fresh, or
-// Safari silently refuses it — so build the File directly from the Blob we already have (no
-// fetch()/data-URI round trip first) and keep everything before the await as synchronous as
-// possible. Falls back to the <a download> trick (plus a persistent link) if sharing isn't
-// available, isn't preferred on this device, or the user dismisses the share sheet.
-async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType){
-  // Where supported (desktop Chrome/Edge), this is the best option: a native "Save As" dialog
-  // where the user picks the destination folder, with no page navigation at all.
-  if(window.showSaveFilePicker && !isTouchPrimaryDevice()){
+// IMPORTANT: showSaveFilePicker/navigator.share must be called with the click's "user activation"
+// still fresh, or the browser silently refuses — so build the File directly from the Blob we
+// already have (no fetch()/data-URI round trip first) and keep everything before each await as
+// synchronous as possible.
+async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType, textFallback){
+  if(window.showSaveFilePicker){
     try{
       var ext = '.'+filename.split('.').pop();
       var handle = await window.showSaveFilePicker({
@@ -1306,29 +1331,31 @@ async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType){
       // picker failed for some other reason (older/unsupported browser quirk) — fall through
     }
   }
-  if(isTouchPrimaryDevice()){
-    try{
-      if(navigator.canShare && window.File){
-        var file = new File([blob], filename, {type: mimeType || blob.type});
-        if(navigator.canShare({files:[file]})){
-          await navigator.share({files:[file]});
-          if(statusEl) statusEl.innerHTML = '完成！請在剛才跳出的選單中選擇「儲存到檔案」或你想要的方式。'+(noteHtml||'');
-          return;
-        }
+  try{
+    if(navigator.canShare && window.File){
+      var file = new File([blob], filename, {type: mimeType || blob.type});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        if(statusEl) statusEl.innerHTML = '完成！請在剛才跳出的選單中選擇儲存方式（例如「隔空投送」給自己、或「郵件」寄給自己再存檔案）。'+(noteHtml||'');
+        return;
       }
-    }catch(shareErr){
-      // user cancelled the share sheet, or sharing isn't supported/failed — fall through to the link below
     }
+  }catch(shareErr){
+    if(shareErr && shareErr.name === 'AbortError'){
+      if(statusEl) statusEl.textContent = '已取消分享。';
+      return;
+    }
+    // sharing isn't supported/failed for some other reason — fall through
+  }
+  if(textFallback){
+    showTextFallbackModal(textFallback, filename);
+    if(statusEl) statusEl.innerHTML = '請在跳出的視窗中複製內容另存。'+(noteHtml||'');
+    return;
   }
   var dataUri = await blobToDataUri(blob);
-  var a = document.createElement('a');
-  a.href = dataUri; a.download = filename; a.target = '_blank'; a.rel = 'noopener';
-  document.body.appendChild(a);
-  try{ a.click(); }catch(e){ /* ignore */ }
-  document.body.removeChild(a);
   if(statusEl){
-    statusEl.innerHTML = '完成！若沒有自動下載，或跳出的畫面是亂碼／空白頁，請回上一頁，改用下面這個連結「長按」後選擇下載或分享：　'
-      + '<a class="pdf-fallback-link" href="'+dataUri+'" download="'+esc(filename)+'" target="_blank" rel="noopener">開啟／下載檔案</a>'
+    statusEl.innerHTML = '這個瀏覽器無法自動存檔。請點下面連結（可能會另開頁面顯示內容，長按／右鍵選「下載」或「儲存連結」）：　'
+      + '<a class="pdf-fallback-link" href="'+dataUri+'" download="'+esc(filename)+'">開啟／下載檔案</a>'
       + (noteHtml||'');
   }
 }
@@ -1537,7 +1564,7 @@ async function renderBackup(){
 byId('btnExportJson').addEventListener('click', async function(){
   var payload = JSON.stringify({exportedAt:new Date().toISOString(), diseases:diseases}, null, 2);
   var blob = new Blob([payload],{type:'application/json;charset=utf-8'});
-  await offerFileDownload(blob, '植病病害卡_備份.json', byId('jsonExportStatus'), '', 'application/json');
+  await offerFileDownload(blob, '植病病害卡_備份.json', byId('jsonExportStatus'), '', 'application/json', payload);
 });
 byId('btnImportFile').addEventListener('click', function(){ byId('importFile').click(); });
 byId('importFile').addEventListener('change', function(e){
