@@ -1271,13 +1271,15 @@ function blobToDataUri(blob){
 // Safari's support for the <a download> attribute is unreliable — for both blob: and data: URIs
 // it often just navigates/displays the content instead of saving a file (and when it displays
 // text content without an explicit charset, you get mojibake). The reliable way to actually save
-// a file on Safari/iOS is the native Share Sheet (Web Share API with a File), so try that first;
-// only fall back to the <a download> trick (plus a persistent link) if sharing isn't available.
-async function offerFileDownload(dataUri, filename, statusEl, noteHtml, mimeType){
+// a file on Safari/iOS is the native Share Sheet (Web Share API with a File), so try that first.
+// IMPORTANT: navigator.share() must be called with the click's "user activation" still fresh, or
+// Safari silently refuses it — so build the File directly from the Blob we already have (no
+// fetch()/data-URI round trip first) and keep everything before the await as synchronous as
+// possible. Only fall back to the <a download> trick (plus a persistent link) if sharing isn't
+// available or the user dismisses the share sheet.
+async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType){
   try{
     if(navigator.canShare && window.File){
-      var resp = await fetch(dataUri);
-      var blob = await resp.blob();
       var file = new File([blob], filename, {type: mimeType || blob.type});
       if(navigator.canShare({files:[file]})){
         await navigator.share({files:[file]});
@@ -1288,6 +1290,7 @@ async function offerFileDownload(dataUri, filename, statusEl, noteHtml, mimeType
   }catch(shareErr){
     // user cancelled the share sheet, or sharing isn't supported/failed — fall through to the link below
   }
+  var dataUri = await blobToDataUri(blob);
   var a = document.createElement('a');
   a.href = dataUri; a.download = filename; a.target = '_blank'; a.rel = 'noopener';
   document.body.appendChild(a);
@@ -1416,9 +1419,9 @@ byId('btnGeneratePdf').addEventListener('click', async function(){
     }
 
     byId('pdfStatus').textContent = '輸出檔案中…';
-    var dataUri = doc.output('datauristring');
+    var pdfBlob = doc.output('blob');
     var note = failedImages ? '　(有 '+failedImages+' 張照片讀取失敗，已以文字占位)' : '';
-    await offerFileDownload(dataUri, '植病小卡_'+items.length+'張.pdf', byId('pdfStatus'), note, 'application/pdf');
+    await offerFileDownload(pdfBlob, '植病小卡_'+items.length+'張.pdf', byId('pdfStatus'), note, 'application/pdf');
   }catch(e){
     console.error(e);
     byId('pdfStatus').textContent = '產生失敗：'+(e&&(e.message)||e);
@@ -1502,11 +1505,9 @@ async function renderBackup(){
   }catch(e){ info.textContent='讀取失敗：'+(e&&e.message||e); }
 }
 byId('btnExportJson').addEventListener('click', async function(){
-  byId('jsonExportStatus').textContent = '匯出中…';
   var payload = JSON.stringify({exportedAt:new Date().toISOString(), diseases:diseases}, null, 2);
   var blob = new Blob([payload],{type:'application/json;charset=utf-8'});
-  var dataUri = await blobToDataUri(blob);
-  await offerFileDownload(dataUri, '植病病害卡_備份.json', byId('jsonExportStatus'), '', 'application/json');
+  await offerFileDownload(blob, '植病病害卡_備份.json', byId('jsonExportStatus'), '', 'application/json');
 });
 byId('btnImportFile').addEventListener('click', function(){ byId('importFile').click(); });
 byId('importFile').addEventListener('change', function(e){
