@@ -1268,27 +1268,35 @@ function blobToDataUri(blob){
     r.readAsDataURL(blob);
   });
 }
-// Safari's support for the <a download> attribute is unreliable — for both blob: and data: URIs
-// it often just navigates/displays the content instead of saving a file (and when it displays
-// text content without an explicit charset, you get mojibake). The reliable way to actually save
-// a file on Safari/iOS is the native Share Sheet (Web Share API with a File), so try that first.
+// iOS/iPadOS Safari's support for the <a download> attribute is unreliable (it often navigates
+// to/displays the content instead of saving a file), so on those devices the Share Sheet (Web
+// Share API with a File, which offers "Save to Files") is the reliable path. Desktop Safari/macOS
+// does NOT have that problem — plain <a download> saves straight to ~/Downloads — and its share
+// sheet doesn't even offer a "save to disk" option, so Share would be a worse experience there.
+// Route by device instead of always preferring Share.
+function isTouchPrimaryDevice(){
+  return /iPhone|iPod|Android/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Mac/i.test(navigator.platform)); // iPadOS reports as "Mac" but has touch
+}
 // IMPORTANT: navigator.share() must be called with the click's "user activation" still fresh, or
 // Safari silently refuses it — so build the File directly from the Blob we already have (no
 // fetch()/data-URI round trip first) and keep everything before the await as synchronous as
-// possible. Only fall back to the <a download> trick (plus a persistent link) if sharing isn't
-// available or the user dismisses the share sheet.
+// possible. Falls back to the <a download> trick (plus a persistent link) if sharing isn't
+// available, isn't preferred on this device, or the user dismisses the share sheet.
 async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType){
-  try{
-    if(navigator.canShare && window.File){
-      var file = new File([blob], filename, {type: mimeType || blob.type});
-      if(navigator.canShare({files:[file]})){
-        await navigator.share({files:[file]});
-        if(statusEl) statusEl.innerHTML = '完成！請在剛才跳出的選單中選擇「儲存到檔案」或你想要的方式。'+(noteHtml||'');
-        return;
+  if(isTouchPrimaryDevice()){
+    try{
+      if(navigator.canShare && window.File){
+        var file = new File([blob], filename, {type: mimeType || blob.type});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({files:[file]});
+          if(statusEl) statusEl.innerHTML = '完成！請在剛才跳出的選單中選擇「儲存到檔案」或你想要的方式。'+(noteHtml||'');
+          return;
+        }
       }
+    }catch(shareErr){
+      // user cancelled the share sheet, or sharing isn't supported/failed — fall through to the link below
     }
-  }catch(shareErr){
-    // user cancelled the share sheet, or sharing isn't supported/failed — fall through to the link below
   }
   var dataUri = await blobToDataUri(blob);
   var a = document.createElement('a');
