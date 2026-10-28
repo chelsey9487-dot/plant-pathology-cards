@@ -403,6 +403,7 @@ footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 
       <legend>匯出備份（JSON，含照片）</legend>
       <p class="hint">會下載一份包含所有欄位與照片（照片以壓縮後的圖片資料內嵌在檔案裡）的 JSON 備份，檔案可能比純文字備份大上許多，視照片數量與張數而定。</p>
       <button class="btn primary" id="btnExportJson">下載備份 JSON</button>
+      <div class="hint" id="jsonExportStatus" style="margin-top:8px;"></div>
     </fieldset>
     <fieldset>
       <legend>匯入備份</legend>
@@ -1259,29 +1260,29 @@ function unitCellHtml(d, imgCache, unitWpx, unitHpx){
     '</div>';
 }
 
-var lastPdfBlobUrl = null;
-function downloadBlob(blob, filename){
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = filename;
-  a.target = '_blank'; a.rel = 'noopener'; // if 'download' is ignored (e.g. in-app browsers), open in a new tab instead of replacing this page
-  document.body.appendChild(a);
-  try{ a.click(); }catch(e){ /* ignore; fallback link below still works */ }
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+function blobToDataUri(blob){
+  return new Promise(function(resolve,reject){
+    var r = new FileReader();
+    r.onload = function(){ resolve(r.result); };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
 }
-function offerPdfDownload(blob, filename, noteHtml){
-  if(lastPdfBlobUrl){ try{ URL.revokeObjectURL(lastPdfBlobUrl); }catch(e){} }
-  var url = URL.createObjectURL(blob);
-  lastPdfBlobUrl = url;
+// Always download via a data: URI, never blob: — blob: URLs only resolve inside the tab that
+// created them, so opening one in a new tab (target="_blank", needed so a failed/blocked download
+// doesn't replace this app page) fails hard in Safari/iOS with "WebKitBlobResource error 1".
+// data: URIs are self-contained and work the same in any tab.
+function offerFileDownload(dataUri, filename, statusEl, noteHtml){
   var a = document.createElement('a');
-  a.href = url; a.download = filename; a.target = '_blank'; a.rel = 'noopener';
+  a.href = dataUri; a.download = filename; a.target = '_blank'; a.rel = 'noopener';
   document.body.appendChild(a);
   try{ a.click(); }catch(e){ /* ignore */ }
   document.body.removeChild(a);
-  byId('pdfStatus').innerHTML = '完成！若沒有自動下載或跳出空白頁，請點這裡：　'
-    + '<a class="pdf-fallback-link" href="'+url+'" download="'+esc(filename)+'" target="_blank" rel="noopener">開啟／下載 PDF</a>'
-    + (noteHtml||'');
+  if(statusEl){
+    statusEl.innerHTML = '完成！若沒有自動下載或跳出空白頁，請點這裡：　'
+      + '<a class="pdf-fallback-link" href="'+dataUri+'" download="'+esc(filename)+'" target="_blank" rel="noopener">開啟／下載檔案</a>'
+      + (noteHtml||'');
+  }
 }
 
 byId('btnGeneratePdf').addEventListener('click', async function(){
@@ -1400,9 +1401,9 @@ byId('btnGeneratePdf').addEventListener('click', async function(){
     }
 
     byId('pdfStatus').textContent = '輸出檔案中…';
-    var blob = doc.output('blob');
+    var dataUri = doc.output('datauristring');
     var note = failedImages ? '　(有 '+failedImages+' 張照片讀取失敗，已以文字占位)' : '';
-    offerPdfDownload(blob, '植病小卡_'+items.length+'張.pdf', note);
+    offerFileDownload(dataUri, '植病小卡_'+items.length+'張.pdf', byId('pdfStatus'), note);
   }catch(e){
     console.error(e);
     byId('pdfStatus').textContent = '產生失敗：'+(e&&(e.message)||e);
@@ -1485,9 +1486,12 @@ async function renderBackup(){
     bar.style.width = Math.min(100, (est.usage/(est.quota||1))*100)+'%';
   }catch(e){ info.textContent='讀取失敗：'+(e&&e.message||e); }
 }
-byId('btnExportJson').addEventListener('click', function(){
+byId('btnExportJson').addEventListener('click', async function(){
+  byId('jsonExportStatus').textContent = '匯出中…';
   var payload = JSON.stringify({exportedAt:new Date().toISOString(), diseases:diseases}, null, 2);
-  downloadBlob(new Blob([payload],{type:'application/json'}), '植病病害卡_備份.json');
+  var blob = new Blob([payload],{type:'application/json'});
+  var dataUri = await blobToDataUri(blob);
+  offerFileDownload(dataUri, '植病病害卡_備份.json', byId('jsonExportStatus'));
 });
 byId('btnImportFile').addEventListener('click', function(){ byId('importFile').click(); });
 byId('importFile').addEventListener('change', function(e){
