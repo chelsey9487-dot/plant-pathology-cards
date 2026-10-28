@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* layout concept: herbarium specimen index — paper-card rows grouped under
    taxonomic rail headings, like a field notebook's cross-reference drawer */
@@ -42,7 +42,7 @@ body{
   font-size:14px; line-height:1.5;
 }
 h1,h2,h3,.disp{font-family:"Noto Serif TC","Noto Serif",serif;}
-.sci{font-family:"EB Garamond","Noto Serif TC",serif;}
+.sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif;}
 .sci i{font-style:italic;}
 .sci .roman{font-style:normal;}
 .sci-preview{font-size:14px; margin-top:4px; min-height:18px; color:var(--accent-2);}
@@ -122,7 +122,7 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .dcard .thumb{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px;}
 .dcard .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
 .dcard .body{padding:8px 10px 10px;}
-.dcard .sci{font-family:"EB Garamond","Noto Serif TC",serif; font-weight:700; font-size:14px; color:var(--accent-2); display:block; line-height:1.3;}
+.dcard .sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif; font-weight:700; font-size:14px; color:var(--accent-2); display:block; line-height:1.3;}
 .dcard .zh{font-weight:600; font-size:12px; color:var(--ink); margin-top:3px; display:block;}
 .dcard .en{font-size:11px; color:var(--muted);}
 .badges{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;}
@@ -192,7 +192,7 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .detail-body{padding:14px 18px 6px;}
 .detail-name-zh{font-family:"Noto Serif TC",serif; font-size:26px; font-weight:900; line-height:1.28;}
 .detail-name-en{font-size:14px; color:var(--muted); margin-top:3px;}
-.detail-sci{font-family:"EB Garamond","Noto Serif TC",serif; font-size:19px; color:var(--accent-2); margin-top:8px;}
+.detail-sci{font-family:Georgia,"Times New Roman","Noto Serif TC",serif; font-size:19px; color:var(--accent-2); margin-top:8px;}
 .detail-badges{margin:12px 0 2px; display:flex; gap:6px; flex-wrap:wrap;}
 .detail-section{margin:14px 18px; padding-top:12px; border-top:1px dashed var(--line);}
 .detail-section h3{font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; margin:0 0 6px; font-weight:700;}
@@ -1392,7 +1392,6 @@ byId('btnGeneratePdf').addEventListener('click', async function(){
     try{
       await Promise.all([
         document.fonts.load('900 '+Math.round(mmpx(card.w*0.125))+'px "Noto Serif TC"'),
-        document.fonts.load('italic 600 '+Math.round(mmpx(card.w*0.072))+'px "EB Garamond"'),
         document.fonts.load('400 '+Math.round(mmpx(card.w*0.05))+'px "Noto Sans TC"')
       ]);
       await document.fonts.ready;
