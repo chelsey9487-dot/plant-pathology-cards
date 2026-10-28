@@ -75,9 +75,7 @@ nav.tabs button.active{background:var(--accent); color:var(--accent-ink); border
 
 /* forced layout overrides */
 body[data-forcelayout="desktop"] .app{max-width:none;}
-body[data-forcelayout="desktop"] .browse-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
 body[data-forcelayout="desktop"] .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
-body[data-forcelayout="mobile"] .browse-grid{grid-template-columns:1fr!important;}
 body[data-forcelayout="mobile"] .form-grid{grid-template-columns:1fr!important;}
 body[data-forcelayout="mobile"] .app{max-width:480px; margin:0 auto;}
 
@@ -118,15 +116,15 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .cat-head .count{font-size:12px; color:var(--muted);}
 .sub-head{font-size:13px; font-weight:700; color:var(--accent-2); margin:14px 0 6px; letter-spacing:.03em; text-transform:uppercase;}
 .genus-head{font-size:12px; color:var(--muted); margin:10px 0 4px; font-style:italic; border-top:1px dashed var(--line); padding-top:6px;}
-.browse-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px;}
-.dcard{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer;}
+.browse-grid{display:flex; gap:10px; overflow-x:auto; padding:2px 2px 10px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;}
+.dcard{flex:0 0 clamp(150px,42vw,200px); scroll-snap-align:start; background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer;}
 .dcard:hover{border-color:var(--accent);}
 .dcard .thumb{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px;}
 .dcard .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
 .dcard .body{padding:8px 10px 10px;}
-.dcard .zh{font-weight:700; font-size:14px;}
+.dcard .sci{font-family:"EB Garamond","Noto Serif TC",serif; font-weight:700; font-size:14px; color:var(--accent-2); display:block; line-height:1.3;}
+.dcard .zh{font-weight:600; font-size:12px; color:var(--ink); margin-top:3px; display:block;}
 .dcard .en{font-size:11px; color:var(--muted);}
-.dcard .sci{font-size:12px; color:var(--accent-2); display:block; margin-top:2px;}
 .badges{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;}
 .badge{font-size:10px; padding:2px 6px; border-radius:5px; border:1px solid var(--line); color:var(--muted);}
 .badge.on-q{color:var(--bad); border-color:var(--bad);}
@@ -175,6 +173,42 @@ legend{font-size:12px; color:var(--accent); font-weight:700; padding:0 4px;}
 .quiz-meta{font-size:12px; color:var(--muted); margin-bottom:10px;}
 
 /* ---------- backup ---------- */
+/* ---------- detail sheet ---------- */
+.detail-overlay{position:fixed; inset:0; z-index:100; background:rgba(20,18,10,.5); display:flex; align-items:flex-end; justify-content:center;}
+.detail-overlay[hidden]{display:none;}
+@media (min-width:760px){ .detail-overlay{align-items:center; padding:24px;} }
+.detail-sheet{background:var(--bg); width:100%; max-width:720px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; box-shadow:0 -10px 34px rgba(0,0,0,.35); position:relative;}
+@media (min-width:760px){ .detail-sheet{border-radius:14px; max-height:88vh;} }
+.detail-topbar{position:sticky; top:0; z-index:2; display:flex; justify-content:flex-end; gap:8px; padding:10px;}
+.detail-topbar button{background:rgba(10,10,6,.6); color:#fff; border:none; border-radius:999px; width:34px; height:34px; font-size:15px; cursor:pointer; line-height:34px; padding:0;}
+.detail-topbar button.edit-btn{width:auto; padding:0 14px; font-size:12px; font-weight:700;}
+.detail-img-box{position:relative; margin-top:-48px;}
+.detail-img{width:100%; max-height:48vh; object-fit:contain; background:#15140f; display:block;}
+.detail-img-empty{width:100%; aspect-ratio:4/3; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; margin-top:-48px;}
+.detail-img-nav{position:absolute; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; background:rgba(10,10,6,.55); color:#fff; border:none; font-size:22px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.detail-img-nav.prev{left:10px;} .detail-img-nav.next{right:10px;}
+.detail-img-nav:hover{background:rgba(10,10,6,.78);}
+.detail-img-count{position:absolute; bottom:10px; right:12px; background:rgba(10,10,6,.6); color:#fff; font-size:11px; padding:2px 9px; border-radius:999px;}
+.detail-body{padding:14px 18px 6px;}
+.detail-name-zh{font-family:"Noto Serif TC",serif; font-size:26px; font-weight:900; line-height:1.28;}
+.detail-name-en{font-size:14px; color:var(--muted); margin-top:3px;}
+.detail-sci{font-family:"EB Garamond","Noto Serif TC",serif; font-size:19px; color:var(--accent-2); margin-top:8px;}
+.detail-badges{margin:12px 0 2px; display:flex; gap:6px; flex-wrap:wrap;}
+.detail-section{margin:14px 18px; padding-top:12px; border-top:1px dashed var(--line);}
+.detail-section h3{font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; margin:0 0 6px; font-weight:700;}
+.detail-section .val{font-size:14px; white-space:pre-wrap; line-height:1.6;}
+.detail-section .val.empty{color:var(--muted); font-style:italic;}
+.detail-carousel-wrap{position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:10px 0 12px; margin-top:16px;}
+.detail-carousel-label{font-size:11px; color:var(--muted); padding:0 16px 6px;}
+.detail-carousel{display:flex; gap:10px; overflow-x:auto; padding:0 16px 2px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;}
+.detail-chip{flex:none; width:64px; text-align:center; scroll-snap-align:center; cursor:pointer; opacity:.68; border:none; background:none; font:inherit; padding:0;}
+.detail-chip.current{opacity:1;}
+.detail-chip .thumb{width:58px; height:58px; border-radius:10px; overflow:hidden; background:var(--surface-2); border:2px solid transparent; margin:0 auto;}
+.detail-chip.current .thumb{border-color:var(--accent-2);}
+.detail-chip .thumb img{width:100%;height:100%;object-fit:cover; display:block;}
+.detail-chip .lbl{font-size:10px; margin-top:3px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pdf-fallback-link{font-weight:700;}
+
 .usage-bar{height:8px; background:var(--surface-2); border-radius:5px; overflow:hidden; margin:6px 0;}
 .usage-bar > div{height:100%; background:var(--accent);}
 textarea.json-box{min-height:140px; font-family:monospace; font-size:11px;}
@@ -383,6 +417,23 @@ footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 
     </fieldset>
   </section>
 </main>
+
+<!-- ================= DETAIL SHEET ================= -->
+<div class="detail-overlay" id="detailOverlay" hidden>
+  <div class="detail-sheet" id="detailSheet">
+    <div class="detail-topbar">
+      <button type="button" class="edit-btn" id="detailEditBtn">✎ 編輯</button>
+      <button type="button" id="detailCloseBtn" title="關閉">✕</button>
+    </div>
+    <div id="detailImgWrap"></div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-carousel-wrap">
+      <div class="detail-carousel-label" id="detailCarouselLabel"></div>
+      <div class="detail-carousel" id="detailCarousel"></div>
+    </div>
+  </div>
+</div>
+
 <footer class="site">植病病害卡 · 資料僅存於本機瀏覽器，請定期備份</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -897,9 +948,8 @@ function renderBrowse(){
           '<div class="thumb">'+(url?'<img src="'+esc(url)+'" loading="lazy">':'無照片')+'</div>'+
           '<div class="body">'+
             '<span class="mastery-dot m'+(d.mastery||0)+'"></span>'+
-            '<span class="zh">'+esc(d.nameZh||'（未命名）')+'</span>'+
-            (d.nameEn?'<div class="en">'+esc(d.nameEn)+'</div>':'')+
             (d.pathogenSci?'<span class="sci">'+sciHtml(d.pathogenSci)+'</span>':'')+
+            '<span class="zh">'+esc(d.nameZh||'（未命名）')+'</span>'+
             '<div class="badges">'+(d.quarantine?'<span class="badge on-q">檢疫對象</span>':'')+taiwanBadge(d)+'</div>'+
           '</div></div>';
       });
@@ -911,7 +961,7 @@ function renderBrowse(){
   host.querySelectorAll('.dcard').forEach(function(card){
     card.addEventListener('click', function(){
       var id = card.getAttribute('data-id');
-      openForEdit(id);
+      openDetail(id);
     });
   });
 }
@@ -925,6 +975,114 @@ function openForEdit(id){
   setSaveStatus('');
   switchTab('edit');
 }
+
+/* ---------------- detail sheet ---------------- */
+var currentDetailId = null;
+var currentDetailPhotoIndex = 0;
+function renderDetailImage(){
+  var d = diseases[currentDetailId];
+  if(!d) return;
+  var photos = d.photos||[];
+  var wrap = byId('detailImgWrap');
+  if(!photos.length){
+    wrap.innerHTML = '<div class="detail-img-empty">無照片</div>';
+    return;
+  }
+  if(currentDetailPhotoIndex<0) currentDetailPhotoIndex = photos.length-1;
+  if(currentDetailPhotoIndex>=photos.length) currentDetailPhotoIndex = 0;
+  var p = photos[currentDetailPhotoIndex];
+  var navHtml = photos.length>1
+    ? '<button type="button" class="detail-img-nav prev" id="detailImgPrev">‹</button>'
+      + '<button type="button" class="detail-img-nav next" id="detailImgNext">›</button>'
+      + '<div class="detail-img-count">'+(currentDetailPhotoIndex+1)+' / '+photos.length+'</div>'
+    : '';
+  wrap.innerHTML = '<div class="detail-img-box"><img class="detail-img" src="'+esc(p.url)+'">'+navHtml+'</div>';
+  if(photos.length>1){
+    byId('detailImgPrev').addEventListener('click', function(e){ e.stopPropagation(); currentDetailPhotoIndex--; renderDetailImage(); });
+    byId('detailImgNext').addEventListener('click', function(e){ e.stopPropagation(); currentDetailPhotoIndex++; renderDetailImage(); });
+  }
+}
+function detailSiblings(d){
+  var pool = Object.keys(diseases).map(function(id){ return Object.assign({_id:id}, diseases[id]); })
+    .filter(function(x){ return x.pathogenType===d.pathogenType; });
+  var sameSub = (SUBCATS[d.pathogenType]||[]).length
+    ? pool.filter(function(x){ return (x.subCategory||'')===(d.subCategory||''); })
+    : pool;
+  return sortByGenus(sameSub.length ? sameSub : pool);
+}
+function detailField(label, value){
+  var v = (value||'').toString().trim();
+  return '<div class="detail-section"><h3>'+esc(label)+'</h3><div class="val'+(v?'':' empty')+'">'+(v?esc(v):'（未填寫）')+'</div></div>';
+}
+function renderDetail(){
+  var d = diseases[currentDetailId];
+  if(!d){ closeDetail(); return; }
+  var photos = d.photos||[];
+  var cardIdx = d.cardPhotoId ? photos.findIndex(function(p){ return p.id===d.cardPhotoId; }) : -1;
+  currentDetailPhotoIndex = cardIdx>=0 ? cardIdx : 0;
+  renderDetailImage();
+
+  var taiwanTxt = d.taiwanRecorded==='yes' ? '已有紀錄' : (d.taiwanRecorded==='no' ? '尚未發現' : '不確定');
+  var taiwanFull = taiwanTxt + (d.taiwanNote ? '（'+d.taiwanNote+'）' : '');
+  var typeLine = typeZh(d.pathogenType) + (d.subCategory ? ' · '+subZh(d.pathogenType, d.subCategory) : '');
+
+  var body = ''
+    + '<div class="detail-name-zh">'+esc(d.nameZh||'（未命名）')+'</div>'
+    + (d.nameEn ? '<div class="detail-name-en">'+esc(d.nameEn)+'</div>' : '')
+    + (d.pathogenSci ? '<div class="detail-sci">'+sciHtml(d.pathogenSci)+'</div>' : '')
+    + '<div class="detail-badges">'
+      + '<span class="badge">'+esc(typeLine)+'</span>'
+      + (d.quarantine?'<span class="badge on-q">檢疫對象</span>':'')
+      + taiwanBadge(d)
+    + '</div>';
+  byId('detailBody').innerHTML = body
+    + detailField('病徵描述', d.symptoms)
+    + detailField('主要感染部位', d.infectedPart)
+    + detailField('好發環境', d.environment)
+    + detailField('病害環 Disease Cycle', d.diseaseCycle)
+    + detailField('台灣發現紀錄', taiwanFull)
+    + detailField('台灣現行登記農藥', d.pesticides)
+    + detailField('防治方法（非農藥／綜合防治）', d.controlMethods)
+    + detailField('其他筆記', d.notes);
+
+  var sibs = detailSiblings(d);
+  byId('detailCarouselLabel').textContent = '同分類其他病害（'+sibs.length+'）';
+  var chipsHtml = sibs.map(function(x){
+    var u = thumbUrl(x);
+    return '<button type="button" class="detail-chip'+(x._id===currentDetailId?' current':'')+'" data-id="'+esc(x._id)+'">'
+      + '<span class="thumb">'+(u?'<img src="'+esc(u)+'">':'')+'</span>'
+      + '<span class="lbl">'+esc(x.nameZh||x.nameEn||'')+'</span></button>';
+  }).join('');
+  var carousel = byId('detailCarousel');
+  carousel.innerHTML = chipsHtml;
+  carousel.querySelectorAll('.detail-chip').forEach(function(chip){
+    chip.addEventListener('click', function(){ openDetail(chip.getAttribute('data-id')); });
+  });
+  var cur = carousel.querySelector('.detail-chip.current');
+  if(cur) cur.scrollIntoView({block:'nearest', inline:'center'});
+  byId('detailSheet').scrollTop = 0;
+}
+function openDetail(id){
+  if(!diseases[id]) return;
+  currentDetailId = id;
+  renderDetail();
+  byId('detailOverlay').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeDetail(){
+  byId('detailOverlay').hidden = true;
+  document.body.style.overflow = '';
+  currentDetailId = null;
+}
+byId('detailCloseBtn').addEventListener('click', closeDetail);
+byId('detailOverlay').addEventListener('click', function(e){ if(e.target===this) closeDetail(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !byId('detailOverlay').hidden) closeDetail(); });
+byId('detailEditBtn').addEventListener('click', function(){
+  if(!currentDetailId) return;
+  var id = currentDetailId;
+  closeDetail();
+  openForEdit(id);
+});
 
 function renderAll(){
   renderBrowse();
@@ -1101,14 +1259,29 @@ function unitCellHtml(d, imgCache, unitWpx, unitHpx){
     '</div>';
 }
 
+var lastPdfBlobUrl = null;
 function downloadBlob(blob, filename){
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url; a.download = filename;
+  a.target = '_blank'; a.rel = 'noopener'; // if 'download' is ignored (e.g. in-app browsers), open in a new tab instead of replacing this page
   document.body.appendChild(a);
-  a.click();
+  try{ a.click(); }catch(e){ /* ignore; fallback link below still works */ }
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+function offerPdfDownload(blob, filename, noteHtml){
+  if(lastPdfBlobUrl){ try{ URL.revokeObjectURL(lastPdfBlobUrl); }catch(e){} }
+  var url = URL.createObjectURL(blob);
+  lastPdfBlobUrl = url;
+  var a = document.createElement('a');
+  a.href = url; a.download = filename; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a);
+  try{ a.click(); }catch(e){ /* ignore */ }
+  document.body.removeChild(a);
+  byId('pdfStatus').innerHTML = '完成！若沒有自動下載或跳出空白頁，請點這裡：　'
+    + '<a class="pdf-fallback-link" href="'+url+'" download="'+esc(filename)+'" target="_blank" rel="noopener">開啟／下載 PDF</a>'
+    + (noteHtml||'');
 }
 
 byId('btnGeneratePdf').addEventListener('click', async function(){
@@ -1228,8 +1401,8 @@ byId('btnGeneratePdf').addEventListener('click', async function(){
 
     byId('pdfStatus').textContent = '輸出檔案中…';
     var blob = doc.output('blob');
-    downloadBlob(blob, '植病小卡_'+items.length+'張.pdf');
-    byId('pdfStatus').textContent = '完成！已下載。'+(failedImages? ' 有 '+failedImages+' 張照片讀取失敗，已以文字占位。':'');
+    var note = failedImages ? '　(有 '+failedImages+' 張照片讀取失敗，已以文字占位)' : '';
+    offerPdfDownload(blob, '植病小卡_'+items.length+'張.pdf', note);
   }catch(e){
     console.error(e);
     byId('pdfStatus').textContent = '產生失敗：'+(e&&(e.message)||e);
