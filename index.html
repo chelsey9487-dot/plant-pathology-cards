@@ -32,6 +32,27 @@
   --accent-2:#e08a5e; --bad:#e2756b; --good:#7fb285; --warn:#e0b45a;
   color-scheme:dark;
 }
+/* crop-view themes: a deliberate full-interface skin switch, so these win over the
+   light/dark rules above regardless of system preference (placed after them, same
+   specificity -> source order decides). */
+:root[data-cropview="produce"]{
+  --bg:#eaf4e4; --surface:#fcfdf9; --surface-2:#dcefd3; --ink:#273421;
+  --muted:#6d8260; --line:#c3ddb4; --accent:#4f8a3d; --accent-ink:#f3fbee;
+  --accent-2:#c0392b; --bad:#a3312a; --good:#4f8a3d; --warn:#b5651d;
+  color-scheme:light;
+}
+:root[data-cropview="crop"]{
+  --bg:#f9f1d8; --surface:#fffcf3; --surface-2:#f0e0ad; --ink:#3a2f14;
+  --muted:#8c7843; --line:#e2cd8c; --accent:#b8860b; --accent-ink:#fffaf0;
+  --accent-2:#8b5a2b; --bad:#a3312a; --good:#6a8c3d; --warn:#b5651d;
+  color-scheme:light;
+}
+:root[data-cropview="other"]{
+  --bg:#fbeaf1; --surface:#fffbfd; --surface-2:#f6d7e5; --ink:#3a2530;
+  --muted:#96677f; --line:#edc0d7; --accent:#c75d94; --accent-ink:#fff4f9;
+  --accent-2:#8d5fae; --bad:#a3312a; --good:#4f8a3d; --warn:#b5651d;
+  color-scheme:light;
+}
 *{box-sizing:border-box;}
 html,body{margin:0; height:100%;}
 body{
@@ -72,6 +93,18 @@ nav.tabs button.active{background:var(--accent); color:var(--accent-ink); border
 .layout-toggle button{font:inherit; font-size:12px; border:none; background:var(--surface-2); color:var(--muted); padding:7px 9px; cursor:pointer;}
 .layout-toggle button.active{background:var(--accent-2); color:var(--accent-ink); font-weight:700;}
 .save-status{font-size:11px; color:var(--muted); white-space:nowrap;}
+.cropview-switch{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden;}
+.cropview-switch button{font:inherit; font-size:12px; border:none; background:var(--surface-2); color:var(--ink); padding:7px 10px; cursor:pointer; font-weight:600;}
+.cropview-switch button.active{background:var(--accent); color:var(--accent-ink);}
+
+/* ---------- new-entry crop-category picker ---------- */
+.crop-picker{display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 4px;}
+.crop-pick-card{flex:1; min-width:180px; border:2px solid var(--line); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer; font-size:16px; font-weight:700; color:#2b2a22;}
+.crop-pick-card:hover{border-color:var(--ink);}
+.crop-pick-card .emoji{font-size:38px; display:block; margin-bottom:10px;}
+.crop-pick-card.produce{background:linear-gradient(135deg,#eaf4e4,#fbdcd6); border-color:#c3ddb4;}
+.crop-pick-card.crop{background:linear-gradient(135deg,#f9f1d8,#f0e0ad); border-color:#e2cd8c;}
+.crop-pick-card.other{background:linear-gradient(135deg,#fbeaf1,#f0ddf2); border-color:#edc0d7;}
 
 /* forced layout overrides */
 body[data-forcelayout="desktop"] .app{max-width:none;}
@@ -219,6 +252,11 @@ footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 
 
 <div class="topbar">
   <div class="brand"><span class="mark">🌿</span><div><h1>植病病害卡</h1><div class="sub">病害資料庫 · 快速記憶卡製作</div></div></div>
+  <div class="cropview-switch" id="cropviewSwitch">
+    <button data-crop="produce">🥬🍅 蔬果</button>
+    <button data-crop="crop">🌾 作物</button>
+    <button data-crop="other">🌸 其他</button>
+  </div>
   <nav class="tabs" id="navTabs">
     <button data-tab="browse" class="active">瀏覽</button>
     <button data-tab="edit">新增 / 編輯</button>
@@ -256,11 +294,28 @@ footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 
       <button class="btn" id="btnNewEntry">清空 / 新增另一筆</button>
       <button class="btn danger" id="btnDeleteEntry" hidden>刪除此病害</button>
     </div>
-    <form id="diseaseForm" onsubmit="return false;">
+
+    <div id="cropPickerWrap">
+      <p class="hint" style="margin:0 0 4px;font-size:13px;">請先選擇這筆病害屬於哪一類：</p>
+      <div class="crop-picker" id="cropPicker">
+        <div class="crop-pick-card produce" data-crop="produce"><span class="emoji">🥬🍅</span>蔬果</div>
+        <div class="crop-pick-card crop" data-crop="crop"><span class="emoji">🌾</span>作物</div>
+        <div class="crop-pick-card other" data-crop="other"><span class="emoji">🌸</span>其他</div>
+      </div>
+    </div>
+
+    <form id="diseaseForm" onsubmit="return false;" hidden>
       <div class="form-grid">
         <div>
           <fieldset>
             <legend>名稱與病原</legend>
+            <div class="field"><label>類別</label>
+              <select id="f_cropCategory">
+                <option value="produce">🥬🍅 蔬果</option>
+                <option value="crop">🌾 作物</option>
+                <option value="other">🌸 其他</option>
+              </select>
+            </div>
             <div class="field"><label>中文病名</label><input type="text" id="f_nameZh" placeholder="例：水稻稻熱病"></div>
             <div class="field"><label>英文病名</label><input type="text" id="f_nameEn" placeholder="例：Rice blast"></div>
             <div class="field"><label>病原菌學名</label><input type="text" id="f_pathogenSci" placeholder="例：Pyricularia oryzae">
@@ -444,6 +499,8 @@ footer.site{text-align:center; font-size:11px; color:var(--muted); padding:20px 
 "use strict";
 
 /* ---------------- config ---------------- */
+var CROP_CATEGORIES = {produce:'蔬果', crop:'作物', other:'其他'};
+function cropLabel(key){ return CROP_CATEGORIES[key] || key; }
 var PATHOGEN_TYPES = [
   {key:'bacteria', zh:'細菌 Bacteria'},
   {key:'fungus', zh:'真菌 Fungi'},
@@ -520,6 +577,9 @@ var selectedCardIds = {};
 var quizQueue = [];
 var quizIndex = 0;
 var quizFilterType = 'all';
+var currentCropCategory = ''; // crop category of the entry currently open in the edit form
+var activeCropView = 'produce'; // global browse/card-maker/quiz scope: 'produce' or 'crop'
+try{ activeCropView = localStorage.getItem('pp_cropview') || 'produce'; }catch(e){}
 
 function byId(id){ return document.getElementById(id); }
 
@@ -610,11 +670,34 @@ function switchTab(tab){
   document.querySelectorAll('.panel').forEach(function(p){
     p.classList.toggle('active', p.id === 'panel-'+tab);
   });
+  // the edit tab drives its own theme (from the entry being added/edited); every other tab
+  // follows the global crop-view switcher in the topbar.
+  if(tab!=='edit') applyCropTheme(activeCropView);
+  if(tab==='browse') renderBrowse();
   if(tab==='cards') renderCardMaker();
   if(tab==='quiz') { buildQuizQueue(); renderQuiz(); }
   if(tab==='backup') renderBackup();
 }
 byId('btnNewFromBrowse').addEventListener('click', function(){ startNewEntry(); switchTab('edit'); });
+
+/* ---------------- crop-view switcher (蔬果 / 作物) ---------------- */
+function setCropView(crop){
+  activeCropView = crop;
+  try{ localStorage.setItem('pp_cropview', crop); }catch(e){}
+  document.querySelectorAll('#cropviewSwitch button').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-crop')===crop);
+  });
+  if(activeTab!=='edit') applyCropTheme(crop);
+  if(activeTab==='browse') renderBrowse();
+  if(activeTab==='cards') renderCardMaker();
+  if(activeTab==='quiz'){ buildQuizQueue(); renderQuiz(); }
+}
+byId('cropviewSwitch').addEventListener('click', function(e){
+  var btn = e.target.closest('button[data-crop]');
+  if(!btn) return;
+  setCropView(btn.getAttribute('data-crop'));
+});
+setCropView(activeCropView);
 
 /* ---------------- layout toggle ---------------- */
 (function(){
@@ -657,6 +740,7 @@ function fillSubcatOptions(type){
 
 function emptyEntry(){
   return {
+    cropCategory: currentCropCategory||'produce',
     nameZh:'', nameEn:'', pathogenSci:'', pathogenType:'fungus', subCategory:'',
     symptoms:'', infectedPart:'', environment:'', diseaseCycle:'',
     taiwanRecorded:'unknown', taiwanNote:'', quarantine:false,
@@ -665,17 +749,46 @@ function emptyEntry(){
   };
 }
 
-function startNewEntry(){
+function applyCropTheme(crop){
+  // the CSS vars are declared on :root (the <html> element), so the attribute must go there too
+  if(crop) document.documentElement.setAttribute('data-cropview', crop);
+  else document.documentElement.removeAttribute('data-cropview');
+}
+
+function resetEditPanelToPicker(){
   currentEditId = null;
   workingPhotos = [];
-  loadFormFrom(emptyEntry());
+  currentCropCategory = '';
   byId('editTitle').textContent = '新增病害';
   byId('btnDeleteEntry').hidden = true;
   setSaveStatus('');
+  byId('cropPickerWrap').hidden = false;
+  byId('diseaseForm').hidden = true;
+}
+function startNewEntry(){
+  resetEditPanelToPicker();
+  applyCropTheme(''); // neutral while the picker is up, no theme bias before a choice
 }
 byId('btnNewEntry').addEventListener('click', startNewEntry);
+byId('cropPicker').addEventListener('click', function(e){
+  var card = e.target.closest('.crop-pick-card');
+  if(!card) return;
+  var crop = card.getAttribute('data-crop');
+  currentCropCategory = crop;
+  setCropView(crop); // also sync the global browse/quiz/card-maker view to match
+  applyCropTheme(crop); // setCropView() skips the theme while on the edit tab (by design), so set it explicitly here
+  byId('cropPickerWrap').hidden = true;
+  byId('diseaseForm').hidden = false;
+  loadFormFrom(emptyEntry());
+});
+byId('f_cropCategory').addEventListener('change', function(){
+  currentCropCategory = this.value;
+  applyCropTheme(currentCropCategory);
+});
 
 function loadFormFrom(d){
+  currentCropCategory = d.cropCategory||'produce';
+  byId('f_cropCategory').value = currentCropCategory;
   byId('f_nameZh').value = d.nameZh||'';
   byId('f_nameEn').value = d.nameEn||'';
   byId('f_pathogenSci').value = d.pathogenSci||'';
@@ -705,6 +818,7 @@ byId('f_pathogenSci').addEventListener('input', updateSciPreview);
 
 function collectFormData(){
   return {
+    cropCategory: byId('f_cropCategory').value,
     nameZh: byId('f_nameZh').value.trim(),
     nameEn: byId('f_nameEn').value.trim(),
     pathogenSci: byId('f_pathogenSci').value.trim(),
@@ -930,13 +1044,19 @@ function thumbUrl(d){
 }
 function renderBrowse(){
   var q = byId('searchBox').value.trim();
-  var list = groupedList(function(d){ return (activeCatFilter==='all'||d.pathogenType===activeCatFilter) && matchesSearch(d,q); });
+  var list = groupedList(function(d){ return d.cropCategory===activeCropView && (activeCatFilter==='all'||d.pathogenType===activeCatFilter) && matchesSearch(d,q); });
   var host = byId('browseResults');
   if(!Object.keys(diseases).length){
     host.innerHTML = '<div class="empty-state">尚未建立任何病害資料。<br>點右上「+ 新增病害」開始建立你的病害資料庫。</div>';
     return;
   }
-  if(!list.length){ host.innerHTML = '<div class="empty-state">找不到符合條件的病害。</div>'; return; }
+  if(!list.length){
+    var hasAnyInThisCrop = Object.keys(diseases).some(function(id){ return diseases[id].cropCategory===activeCropView; });
+    host.innerHTML = hasAnyInThisCrop
+      ? '<div class="empty-state">找不到符合條件的病害。</div>'
+      : '<div class="empty-state">「'+cropLabel(activeCropView)+'」分類目前還沒有病害資料。<br>點右上「+ 新增病害」開始建立，或切換上方的分類開關查看另一邊。</div>';
+    return;
+  }
   var html='';
   list.forEach(function(g){
     html += '<div class="cat-block"><div class="cat-head"><h2>'+esc(g.cat.zh)+'</h2><span class="count">'+g.count+' 種</span></div>';
@@ -970,7 +1090,10 @@ function openForEdit(id){
   var d = diseases[id];
   if(!d) return;
   currentEditId = id;
+  byId('cropPickerWrap').hidden = true;
+  byId('diseaseForm').hidden = false;
   loadFormFrom(d);
+  applyCropTheme(currentCropCategory);
   byId('editTitle').textContent = '編輯病害';
   byId('btnDeleteEntry').hidden = false;
   setSaveStatus('');
@@ -1005,7 +1128,7 @@ function renderDetailImage(){
 }
 function detailSiblings(d){
   var pool = Object.keys(diseases).map(function(id){ return Object.assign({_id:id}, diseases[id]); })
-    .filter(function(x){ return x.pathogenType===d.pathogenType; });
+    .filter(function(x){ return x.cropCategory===d.cropCategory && x.pathogenType===d.pathogenType; });
   var sameSub = (SUBCATS[d.pathogenType]||[]).length
     ? pool.filter(function(x){ return (x.subCategory||'')===(d.subCategory||''); })
     : pool;
@@ -1091,6 +1214,7 @@ function renderAll(){
   if(activeTab==='backup') renderBackup();
 }
 buildCatChips();
+resetEditPanelToPicker(); // edit tab starts in picker mode even if opened directly via nav, without touching the active tab's theme
 
 /* ---------------- card maker ---------------- */
 byId('cardPreset').addEventListener('change', function(){
@@ -1105,8 +1229,13 @@ byId('cardPreset').addEventListener('change', function(){
   byId(id).addEventListener('input', renderCardMaker);
 });
 byId('cardMode').addEventListener('change', renderCardMaker);
+function selectedCountInView(){
+  return Object.keys(selectedCardIds).filter(function(id){ return diseases[id] && diseases[id].cropCategory===activeCropView; }).length;
+}
 byId('btnSelAll').addEventListener('click', function(){
-  Object.keys(diseases).forEach(function(id){ selectedCardIds[id]=true; });
+  Object.keys(diseases).forEach(function(id){
+    if(diseases[id].cropCategory===activeCropView) selectedCardIds[id]=true;
+  });
   renderCardMaker();
 });
 byId('btnSelNone').addEventListener('click', function(){ selectedCardIds={}; renderCardMaker(); });
@@ -1145,7 +1274,7 @@ function renderCardMaker(){
     : '每頁 '+g.cols+' × '+g.rows+' = '+g.perPage+' 張小卡（'+byId('pageSize').value+'，需雙面列印 2 頁／每頁病害）';
 
   var pick = byId('pickList');
-  var grouped = groupedList(null);
+  var grouped = groupedList(function(d){ return d.cropCategory===activeCropView; });
   var html='';
   if(!grouped.length){ html = '<div class="hint">尚無病害資料。</div>'; }
   grouped.forEach(function(g){
@@ -1165,10 +1294,10 @@ function renderCardMaker(){
     cb.addEventListener('change', function(){
       var id = cb.getAttribute('data-id');
       if(cb.checked) selectedCardIds[id]=true; else delete selectedCardIds[id];
-      byId('selCount').textContent = Object.keys(selectedCardIds).length + ' 筆已選取';
+      byId('selCount').textContent = selectedCountInView() + ' 筆已選取';
     });
   });
-  byId('selCount').textContent = Object.keys(selectedCardIds).length + ' 筆已選取';
+  byId('selCount').textContent = selectedCountInView() + ' 筆已選取';
 
   var prev = byId('cardPreview');
   var pw = 140;
@@ -1361,7 +1490,7 @@ async function offerFileDownload(blob, filename, statusEl, noteHtml, mimeType, t
 }
 
 byId('btnGeneratePdf').addEventListener('click', async function(){
-  var ids = Object.keys(selectedCardIds).filter(function(id){ return diseases[id]; });
+  var ids = Object.keys(selectedCardIds).filter(function(id){ return diseases[id] && diseases[id].cropCategory===activeCropView; });
   if(!ids.length){ byId('pdfStatus').textContent = '請先選取至少一筆病害。'; return; }
   if(!window.jspdf || !window.html2canvas){ byId('pdfStatus').textContent = 'PDF 函式庫載入失敗，請重新整理頁面再試一次。'; return; }
   byId('btnGeneratePdf').disabled = true;
@@ -1490,7 +1619,8 @@ byId('btnGeneratePdf').addEventListener('click', async function(){
 /* ---------------- quiz ---------------- */
 function buildQuizQueue(){
   var pool = Object.keys(diseases).filter(function(id){
-    return quizFilterType==='all' || diseases[id].pathogenType===quizFilterType;
+    return diseases[id].cropCategory===activeCropView &&
+      (quizFilterType==='all' || diseases[id].pathogenType===quizFilterType);
   });
   quizQueue = pool;
   quizIndex = 0;
